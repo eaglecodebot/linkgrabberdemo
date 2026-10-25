@@ -1,5 +1,32 @@
-LINK GRABBER WEB v6.1.4
+LINK GRABBER WEB v6.2.0
 ======================
+
+EXCEL EXPORT v6.2.0
+TXT export remains available. Export Excel downloads one .xlsx workbook with a
+separate worksheet for each service with matching links, in this order:
+  YouTube, Lovable, Notion, Nord, Headspace
+Each sheet has a Link header, then one complete URL per row in column A. URLs
+are stored as literal text, preserving voucher codes and long/encoded values.
+No service's links are put into another service's sheet. Empty sheets are omitted.
+Each service tab also has Export Excel for a workbook containing only its links.
+
+Excel uses the selected user, New/Exported/All status and search filters. It
+exports all matching rows across pagination, within the existing 10,000-link and
+8 MiB limits. Filenames use the Indian calendar date:
+  Decoded_Links_YYYY-MM-DD.xlsx (combined)
+  YouTube_YYYY-MM-DD.xlsx / Lovable_YYYY-MM-DD.xlsx / ... (single service)
+
+Preparing either format marks those links exported without deleting them. To
+export the same links in the other format, select All or Exported first. TXT
+and Excel snapshots both appear in Export history. Download again recreates
+the exact saved selection and worksheet grouping, even if current history or
+capture settings later change. Admins can export/re-download the selected user's
+files; ordinary users cannot access another account's exports.
+
+Upgrade: replace the application files and lockfiles in GitHub and redeploy
+Railway. The Docker build installs the included ExcelJS runtime dependency.
+Refresh the panel with Ctrl+F5. No new environment variable, encryption-key
+change, database reset or capture-script regeneration is needed.
 
 HEADSPACE LINKEDIN VOUCHERS v6.1.4
 Headspace is now matched to the supplied demo format:
@@ -120,14 +147,16 @@ HISTORY / EXPORTS
   history, with counts. Disabled empty tabs are hidden. Click a service tab to
   see only its links.
 - Counts respect the selected user, search and New/Exported/All filters.
-- Each tab keeps its own pagination, Copy displayed links and Export TXT.
+- Each tab keeps its own pagination, Copy displayed links, Export TXT and
+  Export Excel.
 - Each entry shows the IST date/time on the LEFT, the full URL in the middle,
   and Copy on the right, all in the same row.
   Long links stay on one line with horizontal scrolling; saved URLs are intact.
 - Service exports include all matching rows across pages, one URL per line:
     YouTube_YYYY-MM-DD.txt, Lovable_YYYY-MM-DD.txt, Notion_YYYY-MM-DD.txt,
     NordVPN_YYYY-MM-DD.txt, Headspace_YYYY-MM-DD.txt
-- Export all TXT produces Decoded_Links_YYYY-MM-DD.txt. Existing links are marked
+- Export all TXT produces Decoded_Links_YYYY-MM-DD.txt. Export Excel creates
+  a combined workbook with separate service sheets. Existing links are marked
   exported, not deleted. Select All or Exported to see them after exporting.
 - Export history keeps snapshots available for another download later.
 - Admins can view each user's history and export snapshots. Their own capture
@@ -210,7 +239,7 @@ not change on deployment. ADMIN_PASSWORD only creates an absent initial admin;
 change an existing password through the panel.
 
 DEVELOPERS
-Node 24 / MongoDB driver 7.7.0. Start: npm start or node cloud/server.mjs.
+Node 24 / MongoDB driver 7.7.0 / ExcelJS 4.4.0. Start: npm start or node cloud/server.mjs.
 Railway: root /, cloud/Dockerfile, health /health, bind 0.0.0.0 on Railway PORT.
 Scripts use AES-256-GCM, context-bound to owner/auth version/revision, and a
 hashed capture-key lookup. Permanent records have no TTL. Legacy settings stay

@@ -56,9 +56,10 @@ export function decodeResult(result, mode = 'perks') {
   return { ...result, links: [...links.values()] };
 }
 
-export function indianFilename(title = 'Decoded_Links', date = new Date()) {
+export function indianFilename(title = 'Decoded_Links', date = new Date(), format = 'txt') {
+  if (!['txt','xlsx'].includes(format)) throw new Error('Choose TXT or Excel export.');
   const stamp = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
-  return title.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60) + '_' + stamp + '.txt';
+  return title.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60) + '_' + stamp + '.' + format;
 }
 
 // An absent service means the combined export; reject unsupported filters.

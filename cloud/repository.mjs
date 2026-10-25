@@ -102,6 +102,6 @@ export class Repository {
   addExport(item) { return this.exports.insertOne(item); }
   saveExport(item) { return this.exports.updateOne({ _id: item._id, ownerId: item.ownerId }, { $setOnInsert: item }, { upsert: true }); }
   markExported(ownerId, ids) { return this.links.updateMany({ ownerId, _id: { $in: ids } }, { $set: { exported: true } }); }
-  listExports(ownerId) { return this.exports.find({ ownerId }).project({ urls: 0 }).sort({ createdAt: -1 }).limit(100).toArray(); }
+  listExports(ownerId) { return this.exports.find({ ownerId }).project({ urls: 0, worksheets: 0 }).sort({ createdAt: -1 }).limit(100).toArray(); }
   exportById(ownerId, id) { return this.exports.findOne({ ownerId, _id: id }); }
 }

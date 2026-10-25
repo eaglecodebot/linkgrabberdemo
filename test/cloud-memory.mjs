@@ -47,6 +47,6 @@ export class MemoryRepository {
   async addExport(item) { this.exports.set(item._id, structuredClone(item)); }
   async saveExport(item) { if (!this.exports.has(item._id)) await this.addExport(item); }
   async markExported(id, ids) { for (const key of ids) { const r = this.links.get(key); if (r?.ownerId === id) r.exported = true; } }
-  async listExports(id) { return [...this.exports.values()].filter(e => e.ownerId === id).map(({ urls,...r }) => r); }
+  async listExports(id) { return [...this.exports.values()].filter(e => e.ownerId === id).map(({ urls,worksheets,...r }) => r); }
   async exportById(id, key) { const r = this.exports.get(key); return r?.ownerId === id ? r : null; }
 }

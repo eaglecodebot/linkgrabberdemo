@@ -1,0 +1,16 @@
+EXCEL EXPORT — v6.2
+
+Upload all project files to the existing GitHub repository and redeploy Railway.
+Refresh the hosted panel with Ctrl+F5. No env changes or script regeneration.
+
+Export Excel -> one workbook, separate YouTube / Lovable / Notion / Nord /
+Headspace worksheets for services with matching data. Each full URL gets its
+own row under Link in the correct sheet. Empty sheets are omitted.
+
+The Export Excel button inside a service tab exports only that service. Current
+user/search/export-status filters apply. Full URLs and encoded codes are intact.
+Filenames include the Indian calendar date. TXT export remains available.
+
+Exported links stay in history. Select All or Exported to export them again in
+another format. Export history -> Download again returns the saved TXT/Excel
+snapshot; a later capture or setting change does not change old export contents.

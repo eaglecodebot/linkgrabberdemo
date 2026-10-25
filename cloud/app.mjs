@@ -3,6 +3,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { passwordHash, verifyPassword, username, safeUser, hashToken, ownerFor } from './auth.mjs';
 import { perkLink, indianFilename, exportTitle } from '../src/decode.mjs';
+import { exportFormat, exportWorksheets, excelBuffer, sendExcel } from './excel-export.mjs';
 import { acceptCapture, createCaptureScript, readCaptureScript, captureScriptStatus, revocation, captureConfiguration, cleanSettings, captureSettings } from './capture.mjs';
 
 const text = (value, size = 1000) => String(value || '').slice(0, size);
@@ -154,14 +155,17 @@ export function createApp(repo, { publicOrigin = '', trustProxy = false, scriptS
         if (route === '/api/links' && req.method === 'GET') { exportTitle(params.service); return send(res, await repo.listLinks(owner, params)); }
         if (route === '/api/exports' && req.method === 'GET') return send(res, { exports: await repo.listExports(owner) });
         if (route === '/api/exports' && req.method === 'POST') {
-          const b = await body(req), target = ownerFor(user, b.userId), title = exportTitle(b.service), { rows } = await repo.listLinks(target, b, true);
+          const b = await body(req), target = ownerFor(user, b.userId), title = exportTitle(b.service), format = exportFormat(b.format), { rows } = await repo.listLinks(target, b, true);
           const urls = [...new Set(rows.map(r => r.url))];
           if (!urls.length) throw new Error('No links match this export.');
+          if (urls.length > 10000) throw new Error('More than 10,000 links match. Narrow the search before exporting.');
           if (Buffer.byteLength(urls.join('\n')) > 8 * 1024 * 1024) throw new Error('Export is too large. Narrow the search.');
-          const item = { _id: randomUUID(), ownerId: target, filename: indianFilename(title), createdAt: new Date().toISOString(), count: urls.length, urls };
-          await repo.addExport(item); await repo.markExported(target, rows.map(r => r._id)); return send(res, { export: item });
+          const now = new Date(), item = { _id: randomUUID(), ownerId: target, format, filename: indianFilename(title, now, format), createdAt: now.toISOString(), count: urls.length, urls, ...(format === 'xlsx' ? { worksheets: exportWorksheets(rows, urls) } : {}) };
+          const buffer = format === 'xlsx' ? await excelBuffer(item) : null;
+          await repo.addExport(item); await repo.markExported(target, rows.map(r => r._id));
+          return buffer ? sendExcel(res, item, buffer) : send(res, { export: item });
         }
-        if (route === '/api/exports/get' && req.method === 'GET') { const item = await repo.exportById(owner, text(params.id, 100)); if (!item) return send(res, { error: 'Export not found.' }, 404); return send(res, { export: item }); }
+        if (route === '/api/exports/get' && req.method === 'GET') { const item = await repo.exportById(owner, text(params.id, 100)); if (!item) return send(res, { error: 'Export not found.' }, 404); if(item.format==='xlsx')return sendExcel(res,item,await excelBuffer(item)); return send(res, { export: item }); }
         return send(res, { error: 'Not found.' }, 404);
       }
       const files = { '/': ['index.html','text/html'], '/app.js': ['app.js','text/javascript'], '/style.css': ['style.css','text/css'], '/capture':['capture.html','text/html'], '/capture.js':['capture.js','text/javascript'] };

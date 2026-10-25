@@ -66,9 +66,11 @@ window.createLinkSections = function ({ container, load, copy, exportSection, da
     const exportButton = element('button', 'Export TXT', 'primary');
     exportButton.id = 'export-' + key;
     exportButton.setAttribute('aria-label', 'Export ' + service + ' TXT');
+    const excelButton = element('button', 'Export Excel');
+    excelButton.id = 'export-excel-' + key; excelButton.setAttribute('aria-label', 'Export ' + service + ' Excel');
     const copyButton = element('button', 'Copy displayed links');
     copyButton.setAttribute('aria-label', 'Copy displayed ' + service + ' links');
-    actions.append(exportButton, copyButton);
+    actions.append(exportButton, excelButton, copyButton);
     const list = element('ul', undefined, 'service-links'); list.id = 'links-' + key;
     const pagination = element('div', undefined, 'pagination');
     const pageInfo = element('span', '', 'hint');
@@ -78,9 +80,10 @@ window.createLinkSections = function ({ container, load, copy, exportSection, da
     next.setAttribute('aria-label', 'Next ' + service + ' page');
     controls.append(previous, next); pagination.append(pageInfo, controls);
     section.append(heading, actions, list, pagination); container.append(section);
-    const group = { service, tab, section, count, list, pageInfo, previous, next, exportButton, copyButton, page: 1, rows: [], total: 0, signature: null };
+    const group = { service, tab, section, count, list, pageInfo, previous, next, exportButton, excelButton, copyButton, page: 1, rows: [], total: 0, signature: null };
     groups.set(service, group);
     exportButton.onclick = run(exportButton, () => exportSection(service));
+    excelButton.onclick = run(excelButton, () => exportSection(service, 'xlsx'));
     copyButton.onclick = run(copyButton, () => copy(group.rows));
     previous.onclick = run(previous, async () => { group.page = Math.max(1, group.page - 1); await currentRefresh(); });
     next.onclick = run(next, async () => { group.page++; await currentRefresh(); });
@@ -90,7 +93,7 @@ window.createLinkSections = function ({ container, load, copy, exportSection, da
   function render(group) {
     group.tab.textContent = group.service + ' (' + group.total + ')';
     group.count.textContent = group.total + (group.total === 1 ? ' link' : ' links');
-    for (const [button, blocked] of [[group.exportButton, !group.total], [group.copyButton, !group.rows.length], [group.previous, group.page <= 1], [group.next, group.page * 50 >= group.total]]) {
+    for (const [button, blocked] of [[group.exportButton, !group.total], [group.excelButton, !group.total], [group.copyButton, !group.rows.length], [group.previous, group.page <= 1], [group.next, group.page * 50 >= group.total]]) {
       button.disabled = blocked; button.dataset.blocked = String(blocked);
     }
     group.pageInfo.textContent = 'Page ' + group.page + ' of ' + Math.max(1, Math.ceil(group.total / 50));

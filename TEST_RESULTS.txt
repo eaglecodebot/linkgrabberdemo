@@ -1,70 +1,72 @@
-VERIFICATION — LINK GRABBER WEB v6.1.4 — 25 OCTOBER 2026 (IST)
+VERIFICATION — LINK GRABBER WEB v6.2.0 — 25 OCTOBER 2026 (IST)
 =============================================================
 
-Headspace demo verification:
-- The exact user-supplied LinkedIn safety/go wrapper was decoded offline.
-  The full checkout.headspace.com destination and voucherCode matched exactly.
-- Wrapper/direct versions deduplicated to one URL. No destination request,
-  checkout navigation or reward redemption was made.
-- The real voucher is not included in project files/tests. Synthetic values
-  with the same LINKEDIN- voucher format are used in the distributable tests.
-- Recognition now requires checkout.headspace.com and nonempty voucherCode.
-  Generic Headspace home/code/work/help URLs and wrong/empty fields are excluded.
+Automated Node API/logic tests: 43 passed, 0 failed.
+Excel checks:
+- Excel API returns a real .xlsx binary with the spreadsheet MIME type and an
+  IST-dated download filename. TXT continues to return its existing JSON/URLs.
+- Combined export has separate YouTube, Lovable, Notion, Nord, Headspace sheets.
+  Each full URL stays in its matching sheet, one literal-text cell per row.
+- Encoded voucher/query content and long URLs survive workbook write/read intact.
+  Independent ZIP/XML inspection confirms correct sheet order, text rows, no
+  formulas, frozen headers and valid workbook structure.
+- Service, search and New/Exported/All filters apply. A 72-link service export
+  includes all rows across pagination; service-only export has one sheet.
+- Export snapshots retain original URLs and service grouping. Download again
+  preserves old contents after current records change. No links are deleted.
+- Owner isolation applies to creation and download. Other users cannot retrieve
+  the workbook; authorized admins can download a selected user's export.
+- Invalid format, empty selection, too many links and cross-user requests create
+  no snapshots and do not mark records exported. Legacy TXT snapshots work.
+- Indian filename dates are checked across a UTC/IST calendar boundary.
 
-Automated Node API/logic tests: 38 passed, 0 failed.
-- Wrapper/direct/nested Headspace decoding preserves the full URL, encoded
-  delimiters, extra query parameters and fragment without decoding code twice.
-- Selected Headspace capture saves only that service; disabled services are
-  filtered. A repeat returns duplicates and inserts zero new links.
-- Headspace history is categorized separately. TXT export uses Headspace and
-  the IST calendar date and contains the exact full decoded destination.
-- With all five services enabled, a missing Headspace voucher prevents partial
-  saving. A complete batch saves all five in their respective categories.
-- Existing v6 scripts stay byte-identical when admin changes capture settings;
-  current recognition rules are returned by the capture-configuration endpoint.
-- Other four service decoding, owner isolation, admin-only settings, no-links,
-  unsafe inputs, wrong-page rejection, idempotent saves and exports still pass.
-- Short passwords, encryption, revocation reasons, explicit regeneration,
-  stale-copy/generation checks and session invalidation still pass.
-- Mongo query/update behavior uses a repository contract double, including
-  script installation/revocation and duplicate-preserving capture writes.
+Existing API/logic checks also pass:
+- Five service recognition/decoding, including the supplied Headspace format.
+- Admin-only main URL/service selection, disabled filtering, missing services,
+  duplicate prevention, idempotent save retries and private histories.
+- Encryption, scoped keys, short passwords, password/access revocation causes,
+  explicit script regeneration, stale requests and session invalidation.
+- Mongo query/update semantics use a repository contract double.
 
 Actual Chromium browser flow: PASSED.
-- Existing script used after admin switched selection to Headspace. A synthetic
-  LinkedIn wrapper saved one full checkout voucher in Headspace; other four
-  services were ignored. The next execution reported a duplicate, with no insert.
-- Actual Headspace TXT downloaded and matched the full decoded voucher URL.
-- Admin service switches, counted tabs, disabled-empty tab hiding, retained
-  disabled-service history, active-tab fallback and live settings refresh passed.
-- Direct capture, CSP popup fallback, COOP-isolated confirmation and native
-  Console/manual handoff passed. Local direct save: about 190 ms. Local missing-
-  links message: about 3006 ms. These are synthetic local timings only.
-- Correct owner notices, password reset/change, self/admin revoke, explicit
-  regeneration, disabled/restored accounts and no login flash passed.
-- One script copy button, collapsed View script, real clipboard copy/manual copy
-  fallback, auto-dismiss notice durations and manual close passed.
-- Date/time remains on the left, one-line long URLs scroll horizontally, dark
-  panels and 390px layout pass. No browser JavaScript page errors.
+- Export Excel button downloaded one workbook with all five service sheets;
+  each A2 value matched the correct source URL.
+- Download again downloaded the original workbook after a new link was added;
+  the new link did not enter the old snapshot.
+- YouTube's Export Excel button downloaded only a YouTube worksheet, containing
+  both matching URLs. Empty-service export controls were disabled.
+- TXT/Headspace TXT downloads, history, user/admin permissions, all capture
+  paths, notifications, revocation/reset/disable and session restoration passed.
+- Direct capture, CSP save-window fallback, COOP-isolated confirmation and manual
+  handoff passed. Synthetic local direct save: about 204 ms. Missing-link message:
+  about 3010 ms. These do not predict remote network/database latency.
+- Compact capture card, one script copy button, clipboard fallback, transient
+  notice timers, service tabs/counts, disabled-empty hiding, long URL scrolling,
+  IST timestamp placement, dark theme and 390px layout passed.
+- No JavaScript page errors; UI screenshot inspected.
 
 Build/package checks:
-- Root and cloud package/lock versions agree at 6.1.4; Node syntax checks pass.
-- Production dependencies are unchanged. npm ci installation succeeded.
-- Capture engine remains v6; existing scripts receive updated rules at runtime.
-  No new environment variables or required regeneration. Keep encryption key fixed.
-- ZIP excludes node_modules, local databases, screenshots, real env files and
-  the supplied real voucher code.
+- Node syntax checks and root/cloud package/lock versions agree at 6.2.0.
+- ExcelJS 4.4.0 is pinned in both dependency/lockfile pairs. Production-only npm
+  ci --prefix cloud --omit=dev succeeds. Docker copies the new module and locks.
+- No new env variable, encryption-key change, schema reset or capture-script
+  regeneration. Excel metadata is stored in the existing exports collection.
+- ZIP excludes dependencies, local data, screenshots, test workbook outputs,
+  real env files and the supplied real Headspace voucher.
 
 Limits:
-- Tests use MemoryRepository and Mongo contract doubles, not a live Atlas engine.
-  No deployment to the user's Railway/GitHub service was performed.
-- The supplied URL was verified offline. The live LinkedIn DOM/browser policies
-  and actual checkout redemption were not visited or tested.
-- Collection reads main-document a[href]. No iframe/shadow-root/click-only adapter.
-- Network/database latency and browser isolation can require more time or a save
-  window/manual handoff. Internet is required; there is no offline save queue.
+- Tests use MemoryRepository/Mongo query doubles, not a live Atlas engine. No
+  deployment to the user's actual Railway/GitHub service was performed.
+- .xlsx files were structurally inspected and read with ExcelJS. Microsoft Excel
+  desktop itself was not launched. There are no calculations/formulas to recalc.
+- Synthetic source anchors/vouchers are used in browser tests. Real LinkedIn
+  pages and reward checkout/redemption were not visited.
+- Internet/backend availability is required for capture/export. Browser security
+  can require a save window or manual handoff. Main-document a[href] is supported.
 
 Repeat:
   npm ci
   npm test
   npm run test:browser
-Use installed Chrome/Edge or CHROME_PATH for browser checks.
+Use Chrome/Edge or CHROME_PATH for the browser test. TEST_XLSX_DIR optionally
+writes a synthetic workbook outside the project for independent QA inspection.

@@ -1,7 +1,8 @@
 import puppeteer from 'puppeteer-core';
+import ExcelJS from 'exceljs';
 import http from 'node:http';
 import { once } from 'node:events';
-import { existsSync,readFileSync,mkdtempSync,rmSync } from 'node:fs';
+import { existsSync,readFileSync,mkdtempSync,rmSync,unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import assert from 'node:assert/strict';
@@ -180,5 +181,17 @@ try{
  // An expired session reaches the login view only after the server rejects it.
  const expired=await browser.newPage();await expired.goto(origin);await expired.evaluate(()=>sessionStorage.setItem('lg-cloud-token','f'.repeat(64)));await expired.reload();await expired.waitForFunction(()=>!document.querySelector('#login-card').hidden);assert.equal(await expired.$eval('#workspace',n=>n.hidden),true);await expired.close();
  
+ // Real Excel UI download: one service per worksheet, plus frozen-history retry.
+ const excelUser=(await api('admin/users',admin.token,{username:'exceluser',password:'password'})).user;
+ const excelUrls=['https://youtube.com/premium?acc=EXCEL-A','https://lovable.dev/lp/example?reward_code=EXCEL-A','https://www.notion.com/redeem/linkedin?code=EXCEL-A','https://nordvpn.com/linkedin/?code=EXCEL-A','https://checkout.headspace.com/checkout?voucherCode=LINKEDIN-EXCEL-A'];
+ await repo.saveLinks(excelUser.id,excelUrls.map((url,i)=>({_id:'excel-'+i,url,service:['YouTube','Lovable','Notion','NordVPN','Headspace'][i],first_seen:'2026-10-25T08:39:54.000Z',last_seen:'2026-10-25T08:39:54.000Z',exported:false})));
+ const excelAuth=await api('login','',{username:'exceluser',password:'password'}),excelPanel=await browser.newPage();excelPanel.on('pageerror',e=>errors.push(e.message));await excelPanel.goto(origin);await excelPanel.evaluate(t=>sessionStorage.setItem('lg-cloud-token',t),excelAuth.token);await excelPanel.reload();await excelPanel.waitForFunction(()=>document.querySelector('#count').textContent.startsWith('5 '));
+ await excelPanel.click('#export-excel');await wait(async()=>(await api('exports',excelAuth.token)).exports.length===1,'Excel snapshot created');const excelSnapshot=(await api('exports',excelAuth.token)).exports[0];await wait(()=>existsSync(join(directory,excelSnapshot.filename)),'Excel workbook downloaded');
+ const firstBook=new ExcelJS.Workbook();await firstBook.xlsx.load(readFileSync(join(directory,excelSnapshot.filename)));assert.deepEqual(firstBook.worksheets.map(s=>s.name),['YouTube','Lovable','Notion','Nord','Headspace']);for(let i=0;i<5;i++)assert.equal(firstBook.worksheets[i].getCell('A2').value,excelUrls[i]);
+ await excelPanel.waitForFunction(()=>document.querySelector('#count').textContent.startsWith('0 '));assert.equal(await excelPanel.$eval('#export-excel-youtube',n=>n.disabled),true);
+ const later='https://youtube.com/premium?acc=EXCEL-B';await repo.saveLinks(excelUser.id,[{_id:'excel-later',url:later,service:'YouTube',first_seen:'2026-10-25T08:40:00.000Z',last_seen:'2026-10-25T08:40:00.000Z',exported:false}]);
+ unlinkSync(join(directory,excelSnapshot.filename));await excelPanel.evaluate(()=>document.querySelector('#exports button').click());await wait(()=>existsSync(join(directory,excelSnapshot.filename)),'Excel Download again');const againBook=new ExcelJS.Workbook();await againBook.xlsx.load(readFileSync(join(directory,excelSnapshot.filename)));assert.equal(againBook.getWorksheet('YouTube').rowCount,2);assert.equal(againBook.getWorksheet('YouTube').getCell('A2').value,excelUrls[0]);
+ await excelPanel.select('#status','all');await excelPanel.waitForFunction(()=>document.querySelector('#count').textContent.startsWith('6 '));await excelPanel.click('#tab-youtube');await excelPanel.click('#export-excel-youtube');await wait(async()=>(await api('exports',excelAuth.token)).exports.length===2,'service Excel snapshot');const ownSnapshot=(await api('exports',excelAuth.token)).exports.find(x=>x.filename.startsWith('YouTube_'));await wait(()=>existsSync(join(directory,ownSnapshot.filename)),'YouTube-only Excel download');const ownBook=new ExcelJS.Workbook();await ownBook.xlsx.load(readFileSync(join(directory,ownSnapshot.filename)));assert.deepEqual(ownBook.worksheets.map(s=>s.name),['YouTube']);assert.deepEqual(new Set(ownBook.getWorksheet('YouTube').getColumn(1).values.slice(2)),new Set([excelUrls[0],later]));
+ if(process.env.TEST_SCREENSHOTS==='1')await excelPanel.screenshot({path:'/workspace/scratch/d75d63e90043/excel-panel-v6_2.png',fullPage:true});await excelPanel.close();report.excelServiceSheetsAndDownloadAgain='PASS';report.perServiceExcelDownload='PASS';
  assert.deepEqual(errors,[]);report.darkPanelsExportsAndPrivacy='PASS';report.result='PASS';console.log(JSON.stringify(report,null,2));
 }finally{if(browser)await browser.close();source.closeAllConnections();cloud.closeAllConnections();await Promise.all([new Promise(r=>source.close(r)),new Promise(r=>cloud.close(r))]);rmSync(directory,{recursive:true,force:true});}

@@ -19,12 +19,12 @@ $('notice').onfocusout=event=>{if(!$('notice').contains(event.relatedTarget))sch
 function el(tag, text) { const n = document.createElement(tag); if (text !== undefined) n.textContent = text; return n; }
 function action(text, fn) { const b = el('button', text); b.onclick = run(fn); return b; }
 function run(fn) { return async event => { event?.preventDefault(); const b = event?.submitter || (event?.currentTarget?.tagName === 'BUTTON' ? event.currentTarget : null); if (b) b.disabled = true; try { await fn(); } catch (e) { note(e.message,'error'); } finally { if (b?.isConnected) b.disabled = false; } }; }
-async function api(path, data) {
+async function request(path, data) {
  const requestToken=token;
  const r=await fetch('/api/'+path,{headers:{Authorization:'Bearer '+requestToken,...(data===undefined?{}:{'Content-Type':'application/json'})},...(data===undefined?{}:{method:'POST',body:JSON.stringify(data)})});
- const b=await r.json();
- if(!r.ok){if(r.status===401&&path!=='login'&&token===requestToken){signOut();note(b.error||'Please log in again.','error');}const e=new Error(b.error||'Request failed.');e.status=r.status;e.scriptStatus=b.scriptStatus;throw e;}return b;
+ if(!r.ok){const b=await r.json();if(r.status===401&&path!=='login'&&token===requestToken){signOut();note(b.error||'Please log in again.','error');}const e=new Error(b.error||'Request failed.');e.status=r.status;e.scriptStatus=b.scriptStatus;throw e;}return r;
 }
+async function api(path,data){return (await request(path,data)).json();}
 function clearScript(){displayedScriptId='';$('console-script').value='';$('script-area').hidden=true;$('script-area').open=false;$('generate-script').hidden=true;$('revoke-scripts').hidden=true;if(me)sessionStorage.removeItem('lg-web-script:'+me.id);}
 function signOut() {scriptRequest++;clearScript();$('script-status').hidden=false;$('script-status-title').textContent='Checking script…';$('script-status-reason').textContent='';$('regenerate-script').hidden=true;$('retry-script-status').hidden=true;token='';me=null;refreshVersion++;sections.reset();$('exports').replaceChildren();sessionStorage.removeItem('lg-cloud-token');$('workspace').hidden=true;$('login-card').hidden=false;$('auth-loading').hidden=true;$('logout').hidden=true;}
 function renderScriptStatus(status){
@@ -57,8 +57,10 @@ function params() { const p = new URLSearchParams({ status: $('status').value, q
 const date = value => new Date(value).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + ' IST';
 const sections = createLinkSections({ container: $('link-sections'), load: p => api('links?' + p),
   copy: async rows => { await navigator.clipboard.writeText(rows.map(r => r.url).join('\n')); note(rows.length + ' URLs copied.'); },
-  exportSection: service => exportTxt(service), date, onError: message=>note(message,'error') });
-function download(item) { const url = URL.createObjectURL(new Blob([item.urls.join('\r\n') + '\r\n'], { type: 'text/plain;charset=utf-8' })), a = el('a'); a.href = url; a.download = item.filename; a.click(); setTimeout(() => URL.revokeObjectURL(url), 30000); }
+  exportSection: (service, format) => exportLinks(service, format), date, onError: message=>note(message,'error') });
+function saveFile(blob,filename){const url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);}
+function download(item){saveFile(new Blob([item.urls.join('\r\n')+'\r\n'],{type:'text/plain;charset=utf-8'}),item.filename);}
+async function downloadExcel(path,data){const response=await request(path,data);const filename=response.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1]||'Decoded_Links.xlsx';saveFile(await response.blob(),filename);}
 async function renderUsers() {
   if (me.role !== 'admin') return;
   const selected = $('history-user').value || me.id; users = (await api('admin/users')).users;
@@ -134,15 +136,20 @@ async function refresh() {
     const history = await api('exports?' + p);
     if (ownVersion !== refreshVersion || !me) return;
     $('exports').replaceChildren();
-    for (const item of history.exports) { const row = el('div'); row.className = 'profile-item'; row.append(el('span', item.filename + ' · ' + item.count + ' links · ' + date(item.createdAt)), action('Download again', async () => { const q = params(); q.set('id', item._id); download((await api('exports/get?' + q)).export); })); $('exports').append(row); }
+    for (const item of history.exports) { const row = el('div'); row.className = 'profile-item'; row.append(el('span', item.filename + ' · ' + item.count + ' links · ' + date(item.createdAt)), action('Download again', async () => { const q = params(); q.set('id', item._id); if(item.format==='xlsx')await downloadExcel('exports/get?'+q);else download((await api('exports/get?' + q)).export); })); $('exports').append(row); }
 }
 $('login').onsubmit = run(async () => { const r = await api('login', { username: $('username').value, password: $('password').value }); $('password').value = ''; token = r.token; sessionStorage.setItem('lg-cloud-token', token); dismissNotice();await enter(); });
 $('logout').onclick = run(async () => { await api('logout', {}); signOut(); });
 $('create-user').onsubmit = run(async () => { await api('admin/users', { username: $('new-username').value, name: $('new-name').value, password: $('create-password').value }); $('create-password').value = ''; $('new-username').value = ''; $('new-name').value = ''; await renderUsers(); note('User created.'); });
 $('reset-password').onsubmit = run(async () => { await api('admin/users/update', { id: $('reset-user').value, password: $('reset-value').value }); $('reset-value').value = ''; note('Password reset. Earlier sessions and capture scripts are revoked. The user must log in and click Regenerate script.'); });
 $('change-password').onsubmit = run(async () => { await api('password', { currentPassword: $('current-password').value, password: $('new-password').value }); $('current-password').value = ''; $('new-password').value = ''; signOut(); note('Password changed. Your capture script was revoked. Log in again, then click Regenerate script.'); });
-async function exportTxt(service) { const p = params(); if (service) p.set('service', service); download((await api('exports', Object.fromEntries(p))).export); await refresh(); note((service || 'Combined') + ' TXT prepared. Saved links remain available in history.'); }
-$('export').onclick = run(() => exportTxt());
+async function exportLinks(service,format='txt') {
+ const p=params();if(service)p.set('service',service);p.set('format',format);
+ if(format==='xlsx')await downloadExcel('exports',Object.fromEntries(p));else download((await api('exports',Object.fromEntries(p))).export);
+ await refresh();note((service||'Combined')+' '+(format==='xlsx'?'Excel':'TXT')+' prepared. Saved links remain available in history.');
+}
+$('export').onclick=run(()=>exportLinks());
+$('export-excel').onclick=run(()=>exportLinks('', 'xlsx'));
 for (const id of ['history-user','status']) $(id).onchange = run(async () => { refreshVersion++; sections.reset(); $('exports').replaceChildren(); await refresh(); });
 let timer; $('search').oninput = () => { clearTimeout(timer); timer = setTimeout(run(async () => { sections.reset(); await refresh(); }), 300); };
 setInterval(()=>{if(me)refresh().then(()=>{backgroundError='';}).catch(e=>{if(backgroundError!==e.message){backgroundError=e.message;note(e.message,'error');}});},5000);

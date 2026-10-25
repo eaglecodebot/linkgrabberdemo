@@ -1,5 +1,12 @@
-LINK GRABBER WEB v6.1 — RAILWAY
+LINK GRABBER WEB v6.2 — RAILWAY
 ============================
+
+EXCEL UPDATE v6.2
+Replace ALL application files and both package/lockfile pairs, then redeploy.
+The existing Dockerfile installs ExcelJS in cloud production dependencies. No
+manual npm command is required on users' PCs. No new environment variable or
+script regeneration. Keep MongoDB and SCRIPT_ENCRYPTION_KEY unchanged.
+Excel snapshots use the existing exports collection; old TXT snapshots still work.
 
 EXISTING v6 INSTALLATION
 Replace the application files and redeploy, keeping the same MongoDB database
