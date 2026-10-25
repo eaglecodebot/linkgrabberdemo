@@ -20,6 +20,10 @@ test('cloud HTTP permissions, per-user isolation, admin history, export retentio
     assert.equal((await req('sync',alice.token,{rows:[capture]})).status,200);
     assert.equal((await req('links',alice.token)).body.total,1);
     assert.equal((await req('links',bob.token)).body.total,0);
+    assert.deepEqual((await req('check-links',alice.token,{urls:[capture.url]})).body.urls,[capture.url]);
+    assert.deepEqual((await req('check-links',bob.token,{urls:[capture.url],userId:a.id})).body.urls,[]);
+    await req('sync',alice.token,{rows:[{...capture,uid:'different-label',profile_id:'p2',profile_name:'Other profile'}]});
+    assert.equal((await req('links',alice.token)).body.total,1);
     assert.equal((await req('links?userId='+a.id,admin.token)).body.rows[0].profile_name,'Alice Profile');
     assert.equal((await req('exports',bob.token,{userId:a.id})).status,403);
     const snapshot = (await req('exports',alice.token,{status:'new'})).body.export;

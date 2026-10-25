@@ -1,0 +1,27 @@
+PERMANENT SCRIPTS UPDATE
+
+1. Open GENERATE_SCRIPT_ENCRYPTION_KEY.html in a browser and generate a setup
+   value ONCE. Copy its variable line into Railway Variables -> Raw Editor.
+   Keep that SCRIPT_ENCRYPTION_KEY value on future redeploys and back it up.
+2. Upload the CONTENTS of Link_Grabber_Web to the existing GitHub repository.
+3. Redeploy Railway with cloud/Dockerfile / node cloud/server.mjs. Keep the same
+   MongoDB database and all other existing variables; no data reset.
+4. Refresh the hosted panel with Ctrl+F5 and log in.
+5. Save your main-page settings, then Copy my script once to get v5.
+
+The same script has no automatic expiry. Settings edits, logging out, GoLogin
+account changes, PC/browser restarts and Railway restarts do not replace it.
+It fetches current settings each run. You still paste/run it after opening or
+refreshing the source page. The username is visible in source-page messages.
+
+Password changes/resets, disabling a user or self/admin script revocation stop
+old scripts. Enabled users can copy a new permanent replacement afterward.
+Admin User management includes Revoke script for each user; links/history remain.
+
+Scripts/keys are private. A different user's valid script still saves to that
+user; check Saving to: username. Saved/duplicate/error results and the dark four
+service sections/export history remain. The save-window/manual fallbacks remain.
+
+The encryption-key generator is a one-time ADMIN setup helper. Users only need
+the website. The generator sends nothing to a server and contains no prefilled
+secret. Never upload the GENERATED value to GitHub.

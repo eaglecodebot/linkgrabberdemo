@@ -8,7 +8,7 @@ export function username(value) {
   return name;
 }
 export async function passwordHash(password) {
-  if (typeof password !== 'string' || password.length < 12 || password.length > 128) throw new Error('Use a password with 12–128 characters.');
+  if (typeof password !== 'string' || password.length < 1 || password.length > 128) throw new Error('Enter a password (up to 128 characters).');
   const salt = randomBytes(16).toString('hex');
   return salt + ':' + Buffer.from(await scrypt(password, salt, 64)).toString('hex');
 }

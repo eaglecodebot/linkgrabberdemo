@@ -1,10 +1,18 @@
+import { exportTitle } from '../src/decode.mjs';
+import { hashToken } from './auth.mjs';
+
 export class Repository {
-  constructor(db) { this.db = db; this.users = db.collection('users'); this.sessions = db.collection('sessions'); this.links = db.collection('links'); this.exports = db.collection('exports'); this.settings = db.collection('settings'); }
+  constructor(db) { this.db = db; this.users = db.collection('users'); this.sessions = db.collection('sessions'); this.links = db.collection('links'); this.exports = db.collection('exports'); this.settings = db.collection('settings'); this.captureKeys = db.collection('capture_keys'); this.permanentScripts=db.collection('permanent_scripts'); }
   async initialize() {
     await this.users.createIndex({ username: 1 }, { unique: true });
     await this.sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     await this.links.createIndex({ ownerId: 1, last_seen: -1 });
+    await this.links.createIndex({ ownerId: 1, service: 1, last_seen: -1 });
+    await this.links.createIndex({ ownerId: 1, url: 1 });
     await this.exports.createIndex({ ownerId: 1, createdAt: -1 });
+    await this.captureKeys.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+    await this.captureKeys.createIndex({ ownerId: 1 });
+    await this.permanentScripts.createIndex({keyHash:1},{unique:true});
   }
   userByName(name) { return this.users.findOne({ username: name }); }
   userById(id) { return this.users.findOne({ _id: id }); }
@@ -14,8 +22,35 @@ export class Repository {
   addSession(s) { return this.sessions.insertOne(s); }
   session(hash) { return this.sessions.findOne({ _id: hash, expiresAt: { $gt: new Date() } }); }
   revokeSession(hash) { return this.sessions.deleteOne({ _id: hash }); }
+  addCaptureKey(key) { return this.captureKeys.insertOne(key); }
+  async captureKey(hash) { const record=await this.permanentScripts.findOne({keyHash:hash});return record?{ownerId:record._id,authVersion:record.authVersion,permanent:true}:this.captureKeys.findOne({_id:hash}); }
+  permanentScript(ownerId) { return this.permanentScripts.findOne({_id:ownerId}); }
+  async ensurePermanentScript(candidate) {
+    try { await this.permanentScripts.updateOne({_id:candidate._id},{$setOnInsert:candidate},{upsert:true}); }
+    catch(e) { if(e.code!==11000)throw e; }
+    for(let attempt=0;attempt<4;attempt++){
+      const current=await this.permanentScript(candidate._id);
+      if(!current)throw new Error('The script was revoked during copying. Copy it again.');
+      if(current.authVersion>=candidate.authVersion)return current;
+      const result=await this.permanentScripts.replaceOne({_id:current._id,revision:current.revision},candidate);
+      if(result.matchedCount)return candidate;
+    }
+    throw new Error('The script changed during copying. Try again.');
+  }
+  async revokeCaptureKeys(ownerId) { await this.permanentScripts.deleteOne({_id:ownerId});return this.captureKeys.deleteMany({ ownerId }); }
+  async captureWebLinks(ownerId, rows, batchId) {
+    for (const row of rows) {
+      const insert = { ...row, _id: hashToken(ownerId + '\0' + row.url), ownerId, capture_batch: batchId };
+      try { await this.links.updateOne({ ownerId, url: row.url }, { $setOnInsert: insert }, { upsert: true }); }
+      catch (e) { if (e.code !== 11000 || !await this.links.findOne({ _id: insert._id, ownerId, url: row.url })) throw e; }
+    }
+    // The batch marker makes a retry return its original inserted count even if
+    // the first HTTP response was lost. Existing captures keep their metadata.
+    return this.links.countDocuments({ ownerId, capture_batch: batchId, url: { $in: rows.map(r => r.url) } });
+  }
   filter(ownerId, params) {
     const filter = { ownerId };
+    if (params.service) { exportTitle(params.service); filter.service = params.service; }
     if (params.status === 'new') filter.exported = false;
     if (params.status === 'exported') filter.exported = true;
     if (params.q) {
@@ -34,10 +69,22 @@ export class Repository {
   async saveLinks(ownerId, items) {
     for (const item of items) {
       const { _id, exported, first_seen, ...fields } = item;
-      const insert = { first_seen };
-      if (!exported) insert.exported = false; else fields.exported = true;
-      await this.links.updateOne({ _id, ownerId }, { $setOnInsert: insert, $set: { ...fields, ownerId } }, { upsert: true });
+      const insert = { ...fields, ownerId, first_seen, _id: hashToken(ownerId + '\0' + item.url) };
+      if (!exported) insert.exported = false;
+      // Existing IDs/history remain intact. New rows use a stable owner+URL ID,
+      // so two PCs cannot insert the same new URL under different labels.
+      const filter = { ownerId, url: item.url };
+      // Keep the original capture metadata; only the exported flag may advance.
+      const update = { $setOnInsert: insert, ...(exported ? { $set: { exported: true } } : {}) };
+      try { await this.links.updateOne(filter, update, { upsert: true }); }
+      catch (e) {
+        if (e.code !== 11000 || !await this.links.findOne({ _id: insert._id, ownerId, url: item.url })) throw e;
+        if (exported) await this.links.updateOne(filter, { $set: { exported: true } });
+      }
     }
+  }
+  async existingUrls(ownerId, urls) {
+    return (await this.links.find({ ownerId, url: { $in: urls } }).project({ url: 1 }).toArray()).map(r => r.url);
   }
   settingsFor(ownerId) { return this.settings.findOne({ _id: ownerId }); }
   saveSettings(ownerId, value) { return this.settings.updateOne({ _id: ownerId }, { $set: { value } }, { upsert: true }); }

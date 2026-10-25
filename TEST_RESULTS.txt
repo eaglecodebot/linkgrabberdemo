@@ -1,52 +1,75 @@
-VERIFICATION — VERSION 2.0, 25 OCTOBER 2026
+VERIFICATION — LINK GRABBER WEB v5, 25 OCTOBER 2026 (IST)
 
-Automated Node logic/API tests: 16 passed, 0 failed.
-- All four demonstrated LinkedIn wrapper formats decode to complete destinations.
-- Wrapper decoding preserves encoded delimiters, literal plus signs, nested
-  wrapper structure and complete reward codes; rejects unsafe/newline payloads.
-- Supported direct reward URLs work; unrelated links and lookalike domains do not.
-- More than four matching URLs are retained; wrapper/direct duplicates collapse.
-- TXT filename date uses Asia/Kolkata, including Indian/UTC date boundaries.
-- Local database migration, restart persistence, token encryption and API guards.
-- Cloud HTTP login, role restrictions and cross-user read/export denial.
-- Admin can inspect one selected user's links/exports.
-- Export snapshots remain available; repeat sync does not undo export status.
-- User password reset/disable invalidates earlier sessions.
-- Capture owner comes from authenticated user, not uploaded ownerId fields.
-- Empty initial sync does not block links arriving later; failures keep the queue.
-- Failed GoLogin profile sync is retryable; failed launch does not upload an
-  incomplete profile. GoLogin upload error behavior is tested with SDK mocks.
+Automated Node API/logic tests: 22 passed, 0 failed.
+- Copying the same user's script repeatedly returns exactly the same stored code.
+- Simultaneous copy requests retain one permanent record per owner; a stale
+  request cannot downgrade a newer password/auth version's stored record.
+- The encrypted script is recoverable with its deployment key and bound to user,
+  auth version and revision. A wrong/missing key never silently replaces it.
+- Settings edits (URL, minimum and label), logout and a fresh HTTP-server instance
+  preserve the script. Capture uses the latest settings and confirmed owner.
+- Permanent records have no expiry; an old creation date does not stop capture.
+- Self/admin revocation, password resets and disabling stop old keys. A replacement
+  is distinct; the old copy stays invalid. Ordinary users cannot revoke others.
+- Legacy v4 timed keys still expire and retain their original settings restrictions.
+- Scoped keys cannot read history/admin APIs, choose another owner or import into
+  another user's panel. Histories and export snapshots remain private.
+- Captures decode correctly; new/duplicate/mixed/missing/partial outcomes pass.
+- Save acknowledgement follows storage. Retried packets preserve original insert
+  counts without duplicate rows and retain original metadata/legacy row IDs.
+- Short passwords, empty/oversized rejection, session revocation, export retention,
+  signed query preservation and Indian filenames continue to pass.
+- Mongo repository behavior uses a contract double, including compare-and-replace
+  script slots, unique owner+URL identities and capture batch retry markers.
 
-Actual Chromium end-to-end test: PASSED.
-- Three fake links appear immediately; the fourth appears after two seconds.
-- All four were captured and decoded about 2.01 seconds after demo launch.
-- Twenty further newly inserted wrappers were captured/decoded in about 252 ms.
-- Pause prevented capture; resume picked up a pending link in about 504 ms.
-- Success notification appeared after the configured minimum of four was saved.
-- All saved/exported reward URLs were decoded, without visiting destinations.
-- Local collector uploaded captures and TXT snapshots to the cloud HTTP API.
-- Signing in as a different user opened a separate local cache/GoLogin list.
-- Cloud history for the second user did not expose the first user's captures.
-- Admin's actual cloud web UI opened the first user's four-link history.
-- Local and cloud desktop/mobile layouts were checked for horizontal overflow.
+Actual Chromium browser tests: PASSED.
+- Hosted panel created/copied the permanent script; reload returned identical code.
+- Source-page direct saving took about 192 ms in the local demo test environment.
+- Source-page duplicate results did not add links. A fourth link delayed two
+  seconds was accepted; a missing-link error appeared after about 3.01 seconds.
+- Strict source CSP blocked fetch/frames/scripts/styles. A real click opened the
+  save window, exchanged current settings and returned confirmed results.
+- COOP-isolated save windows displayed their own confirmed result and removed
+  their URL fragment; the source did not claim an unreceived success.
+- Native Console copy() and authenticated panel import covered the manual fallback.
+- Changing the URL/minimum/label in the panel required no script change. The same
+  old code accepted the new page/minimum through direct and popup paths, rejected
+  the old page, and used the new label in saved history.
+- While Alice's panel stayed signed in, Bob's valid script prominently displayed
+  Saving to: bob and saved only to Bob's history. Alice's records did not change.
+- Admin UI Revoke script stopped Alice's old copy. Alice copied a distinct
+  replacement, used it successfully, then self-revoked it. Old copies stayed invalid.
+- Dark service sections, real service TXT download, admin history switching and
+  390px layout passed. No JavaScript page errors. Screenshots were inspected.
+- The offline setup HTML generated one valid 64-hex variable line and did not
+  overwrite it on a repeated click. The generated test secret was not logged.
 
-The cloud contract/browser tests used in-memory test storage behind the real
-HTTP app. Production code exclusively uses MongoDB. The real MongoDB driver
-installed/imported successfully, but no live Atlas cluster was supplied.
+Build checks:
+- Node 24 production dependency install succeeds using the cloud lockfile.
+- Required modules load and the Dockerfile includes shared/browser/backend code.
+- No old Windows receiver, BAT/PowerShell launcher, SQLite DB, node_modules or
+  real encryption secret is included in the download.
+- Existing history/accounts/exports/settings are retained in the same database;
+  a permanent_scripts collection/hash index initializes automatically.
 
-Not live-tested here:
-- Your actual GoLogin credentials, proxy setup or profiles.
-- Your actual source webpage DOM, which has not been supplied.
-- Windows batch launch, Windows DPAPI and the PowerShell desktop overlay.
-- A real MongoDB Atlas connection, Railway deployment or Docker image build.
+Limits:
+- Tests use in-memory cloud storage and Mongo contract doubles, not a live Atlas
+  instance/MongoDB engine. No deployment to your actual Railway/GitHub was made.
+- The actual LinkedIn DOM/policies were not live-tested. Ordinary main-document
+  anchors are supported; browser isolation can require confirmation in the save
+  window or manual handoff. An isolated window saves the opening snapshot; if
+  links load afterward, reopen from the source page to send a fresh snapshot.
+- Local timing is not a deadline for external networks/databases. Internet and
+  backend availability are required; no offline queue is provided.
+- An existing valid script for another user still targets its owner. The username
+  display identifies that owner; it cannot identify the physical operator.
+- Keep SCRIPT_ENCRYPTION_KEY fixed/backed up to recover the exact stored scripts.
+  A future panel-domain or capture-code change can require explicit replacement;
+  normal capture settings do not.
 
-Local in-page notification and Chromium behavior were verified on Linux.
-Windows notification source is included and needs a first run on your PC.
-The source main page must expose ordinary anchors in the main document.
-Timing results are local demo measurements, not a guarantee for every PC/site.
-
-Repeat tests:
+Repeat:
+  npm ci
   npm test
-  npm run test:browser  (Chrome/Edge installed, or CHROME_PATH configured)
-The browser test creates temporary data and fake tokens/reward codes only.
-It does not call the GoLogin account API or redeem any reward links.
+  npm run test:browser
+Use installed Chrome/Edge or CHROME_PATH for browser tests. Fake reward codes are
+used; no reward destination is visited/redeemed and no GoLogin API is called.

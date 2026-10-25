@@ -1,195 +1,186 @@
-LINK GRABBER v2 — LINKEDIN REWARD DECODER + CLOUD LOGIN
-=====================================================
+LINK GRABBER WEB v5 — PERMANENT USER SCRIPTS
+==========================================
 
 WHAT CHANGED
-Set your main webpage once. The collector reads matching links, extracts the
-URL embedded in LinkedIn safety/go wrappers, and saves the COMPLETE decoded
-reward URL. Nothing is cut out of the reward URL or its code.
-There are no separate saver sections: all results go into one searchable list.
+- Each panel user has one permanent private script, stored encrypted in MongoDB.
+- Copy my script returns exactly the same saved code across panel logouts,
+  browser/PC restarts and Railway redeploys using the same database/domain/key.
+- Scripts have no automatic expiry. Old v4 timed scripts do not become permanent;
+  copy your new v5 script once after updating.
+- Each run loads the current main-page URL, minimum and default capture label.
+  Routine settings changes do not require replacing the permanent script.
+- Every source-page result and save window prominently shows Saving to: username.
+- Password changes/resets, account disabling, self-revocation and admin revocation
+  stop old scripts. Enabled users can then copy a distinct replacement.
+- Dark panels, four service sections, duplicate/missing-link results, TXT export,
+  private user histories, short passwords and browser fallbacks are retained.
 
-Supported reward URLs:
-- youtube.com / www.youtube.com with a nonempty acc parameter.
-- lovable.dev / www.lovable.dev with a nonempty reward_code parameter.
-- notion.com / www.notion.com with a nonempty code parameter.
-- nordvpn.com / www.nordvpn.com with a nonempty code parameter.
+ONE-TIME RAILWAY SETUP — ADMIN ONLY
+Permanent scripts must be recoverable for copying, so they are encrypted in
+MongoDB with a deployment secret stored separately in Railway.
+1. Extract the ZIP. Open GENERATE_SCRIPT_ENCRYPTION_KEY.html in your browser.
+2. Click Generate initial setup value once, then Copy variable line.
+3. In Railway -> your service -> Variables -> Raw Editor, add that line:
+     SCRIPT_ENCRYPTION_KEY=<the generated 64-character random hex value>
+4. KEEP all existing variables and the same MongoDB database:
+     MONGODB_URI, MONGODB_DB, ADMIN_USERNAME, ADMIN_PASSWORD, PUBLIC_URL
+5. Keep the exact SCRIPT_ENCRYPTION_KEY on future deploys and store a private
+   backup. Do not commit the generated value to GitHub. The generator itself
+   contains no secret and sends nothing over the network.
+Users do not perform this setup. They need only the hosted panel and their script.
+Without a valid secret the panel/history still load, but copying permanent scripts
+shows a setup error. A different secret cannot decrypt scripts already stored.
 
-The LinkedIn wrapper must contain one url parameter holding a valid HTTP/HTTPS
-URL. Already decoded supported reward links work too. Other service homepages,
-help links, unrelated destinations and unsafe protocols are excluded.
-This is offline URL decoding, not a universal shortener/redirect resolver.
-Unknown redirect services or encrypted destination formats need their own
-adapter. No destination is opened, downloaded, visited or redeemed.
+DEPLOY / UPGRADE
+1. Before retiring an older Windows receiver, confirm its cloud sync is complete.
+   Keep its local data folder until required captures/snapshots are verified online.
+2. Add SCRIPT_ENCRYPTION_KEY as above. There is one new variable in v5.
+3. Upload the CONTENTS of Link_Grabber_Web into your existing GitHub repository
+   root, replacing matching files. Include cloud, public, src and railway.json.
+   Do not upload old data, node_modules, real environment files or generated keys.
+4. Let Railway rebuild with cloud/Dockerfile. Keep the service root at / and:
+     node cloud/server.mjs
+   Root npm start also starts the cloud backend. Railway supplies PORT.
+5. Open your public Railway URL and refresh with Ctrl+F5. Existing accounts,
+   passwords, saved links, settings and export snapshots remain in the same DB.
+6. Save your main-page settings, then click Copy my script to obtain v5 once.
+A permanent_scripts collection/index is added automatically; no database wipe.
+The users' PCs need no BAT, PowerShell, Node installation, extension or local app.
 
-UPDATING AN EXISTING INSTALLATION
-Stop & sync profiles and exit the old app. Extract the new files into the same
-app folder, keeping its existing data folder. Run SETUP_WINDOWS.bat again.
-Do not delete data while replacing the program files.
+DAILY CAPTURE
+1. Log in to your Railway panel. Under Your capture setup, save the FINAL main
+   webpage URL/pattern, minimum matching links and optional default capture label.
+   Use * in the path/query, with an exact hostname. Four is a minimum, not a cap.
+2. Click Copy my script. Both copy buttons fetch your current saved script from
+   the server, including after a revocation/password change.
+3. Open your source page in any browser/GoLogin profile, open Developer Tools ->
+   Console (usually Ctrl+Shift+J on Windows Chromium), paste and press Enter.
+4. Check the bold Saving to: username line. Wait for the saved/duplicate/error
+   result before continuing. Green confirms that MongoDB acknowledged the save.
+5. Paste and run the same script for another page, tab, browser profile or refresh.
+   Permanent means reusable code; a script does not survive a full page reload.
+The panel can be closed or logged out during capture. The script identifies its
+owner independently of a panel session or GoLogin account. Normal saving does
+not replace clipboard contents, so the script can remain ready to paste again.
+Only deliberate copy actions/manual handoff replace clipboard contents.
 
-QUICK LOCAL TEST (WINDOWS)
-1. Extract the whole ZIP to a normal folder, for example Documents\LinkGrabber.
-2. Install Node.js 24 LTS from https://nodejs.org/ (version 24.x).
-3. Run SETUP_WINDOWS.bat once. Installation needs internet access.
-4. Run START_WINDOWS.bat. The panel opens at http://127.0.0.1:8765.
-5. Click Try demo. It uses installed Chrome/Edge and FAKE reward codes.
-   Three fake links appear immediately and a fourth after two seconds.
-   Only decoded reward links should appear in Your decoded links.
-6. Local mode works without MongoDB/Railway, but is NOT a cloud backup.
+OWNERSHIP AND ACCESS
+A valid script belonging to Bob saves to BOB, even if another panel tab is logged
+in as Alice. The visible username reduces mistakes; the script cannot determine
+who is physically using the computer. Keep each user's script private.
+The capture key permits saving supported links and reading limited capture setup
+(username, main-page pattern, minimum and label). It cannot read saved history,
+export files, manage users, change a password or choose another account owner.
+An invalid/revoked key or wrong source page shows an error and saves nothing.
+The initial username banner identifies the original script owner; successful
+configuration and save responses confirm the username from the server.
 
-FOR YOUR REAL MULTI-USER SETUP
-Deploy the cloud backend first using DEPLOY_RAILWAY.txt.
-The cloud backend handles authentication and persistent per-user history.
-MongoDB Atlas stores users, decoded links, settings and export snapshots.
-The GoLogin collector and desktop popup run on each user's Windows PC.
-Railway does not launch the GoLogin profiles on users' PCs.
+PERMANENCE AND SECURITY CHANGES
+Routine settings edits, panel logout/login, browser/PC restarts and Railway
+restarts do not rotate the permanent script. The same encrypted code is returned
+from MongoDB each time. A settings edit affects the next run; if settings change
+during a run, the backend validates the current settings again before saving.
+- Change/reset password: previous login sessions and scripts stop working.
+- Disable a user: login and capture stop. Re-enabling still needs a replacement.
+- Revoke my scripts: old keys stop; history/password stay intact. Copy my script
+  creates a new permanent replacement for the enabled user.
+- Admin Revoke script: same targeted effect for the selected user, without
+  changing their password or deleting their links. Admins can also disable access.
+Newly issued replacement scripts are different; the previous copies remain
+invalid. Signing out alone does not revoke a script. Old timed v4 keys keep their
+old expiry/restrictions during transition and are also covered by revocation.
+The saved script includes your panel's domain. If you change that domain or need
+a future capture-code upgrade, preserve the old endpoint or explicitly revoke
+and copy a replacement. Routine page settings need no script update.
 
-LOG IN TO THE PANEL
-1. At the top of the local panel, enter your Railway backend's base URL.
-2. Enter the panel username/password created by the administrator.
-3. Click Log in. Your own local cache, GoLogin account connections and history
-   are loaded separately from other panel users.
-4. The cloud status shows queued captures and any sync errors.
-5. For history from another PC, choose Cloud history above the saved-links list.
-   This retrieves your own MongoDB history even when this PC's cache is empty.
-6. Open cloud history / admin panel opens the hosted website. Log in there too.
-   You can use the hosted website to download history without running GoLogin.
+RESULTS ON THE SOURCE WEBPAGE
+Every message keeps the Saving to: username line visible:
+- Green: new links saved; continue.
+- Red: all links duplicate; nothing added.
+- Amber: new links saved and duplicate links skipped, showing both counts.
+- Red after about three seconds: no matching links or fewer than your minimum;
+  nothing saved. Wait for full page load and rerun if that page is slower.
+- Red: invalid/revoked script, wrong source page or save not confirmed.
+Duplicate checking uses the complete decoded URL within the same panel user's
+history, including exported records and other capture labels. Repeated matching
+anchors are included once and counted. Identical links in different users'
+histories are separate. Existing historical duplicates/old snapshots are retained.
+A repeated delivery of the same packet does not add rows and preserves its original
+saved-count result, including after a lost response. New executions get new IDs.
 
-The login is remembered locally in an encrypted session file. Cloud sessions
-expire after seven days. Logging out or resetting/disabling a user revokes the
-appropriate cloud sessions. The local collector can queue data during a
-connection outage, but cannot bypass cloud account permissions.
-Stop & sync every profile before switching panel users or logging out.
+WHEN THE WEBSITE BLOCKS CROSS-SITE REQUESTS
+The script normally fetches current setup and submits directly to Railway.
+If that website blocks the request, the small Railway save window handles setup
+and saving through its own origin. No browser security setting is disabled.
+- If automatic opening is blocked, click Open save window in the on-page message.
+- When window messaging works, the save window sends current settings back to
+  the source page. The source waits for the configured minimum and returns links.
+  The confirmed result appears on the source page and the save window closes.
+- Some sites isolate windows (COOP). Then the save window validates/saves the
+  snapshot collected when opened and displays the username/result itself. The
+  source message stays informational until it actually receives confirmation.
+  If more links load later, return to the source page and click Open save window
+  again to send a fresh snapshot. Do not continue based on an informational notice.
+- If both paths are blocked, use Copy capture packet, then paste LG_WEB_V5:... into
+  Manual capture handoff in your own Railway panel and save. The panel rejects
+  another user's packet and shows the confirmed owner/result.
+- Very large snapshots use manual handoff instead of a save-window URL.
+The save-window URL fragment is removed immediately and is not sent as a server
+URL/referrer. No reward destination is visited. Browser policy may require an
+extra click or confirmation in the save window; automatic original-tab results
+cannot be guaranteed on every website/browser policy.
 
-ADMINISTRATOR
-Open the Railway backend URL and log in using the admin account configured
-at first startup. You can:
-- Create regular users with initial passwords of at least 12 characters.
-- Open a selected user's own capture history and export history.
-- Prepare/download that user's TXT exports.
-- Reset a regular user's password or disable/enable the account.
-Password reset and disable invalidate existing sessions.
-Regular users can only access their own cloud links, settings and snapshots.
-Passwords are stored as salted scrypt hashes, not plaintext.
-Admin credentials from environment variables create the account only if it
-is absent; changing the environment password does not reset an existing admin.
-Use Change your password while logged in to change the admin's password.
+NETWORK / PERFORMANCE
+A normal run reads current setup, then saves supported links. Source links already
+present are collected after a short debounce. Three seconds is the wait for missing
+links, not a guarantee of network/database response time. Railway, MongoDB and the
+network determine confirmed-save latency. The script falls back to the save window
+when it cannot fetch setup or confirm submission directly.
+There is no offline/local queue. Keep the page/result available and retry if saving
+is not confirmed. A failed/lost response can follow a committed write; retry the
+same packet safely, or check cloud history. Success follows the database write.
 
-CONNECT GOLOGIN
-1. Copy the API token from the GoLogin account you want to use:
-   https://app.gologin.com/personalArea/Token
-2. In Connect an account, enter a label, paste the token and Save account.
-3. Click Load profiles. Use the filter and page buttons, or enter a profile ID.
-4. Close that profile in the regular GoLogin app first.
-5. Click Open & collect in this panel. Browse in the window it opens.
-6. The first SDK launch may download Orbita and can take several minutes.
+SUPPORTED LINKS
+- youtube.com / www.youtube.com with acc.
+- lovable.dev / www.lovable.dev with reward_code.
+- notion.com / www.notion.com with code.
+- nordvpn.com / www.nordvpn.com with code.
+LinkedIn /safety/go/?url=... wrappers are decoded once per wrapper. Complete URLs
+and reward-code encodings are preserved. Direct supported reward URLs work too.
+Only ordinary a[href] in the main document are read; no iframe/shadow-root/click-
+only adapters are included. Limits: 5,000 unique links and a 2 MiB capture packet.
+This is not a universal resolver for unknown redirect/encryption formats.
+The script does not read cookies/source credentials or visit/redeem destinations.
+Only matching URLs, anchor labels, source URL/title and capture metadata go to
+YOUR Railway server. Main-page checks happen on the server before any save.
 
-Changing GoLogin accounts:
-- Click Add new, enter a new label and that account's token, then Save account.
-- Select the desired account in the dropdown and Load profiles.
-- Switching login in GoLogin itself does not switch this panel's token.
-- Use Edit token to replace an expired token for the SAME account.
-- GoLogin API tokens are kept encrypted on the local PC, not uploaded to cloud.
+HISTORY / EXPORTS
+The four service sections have their own counts, pagination, copy controls and
+TXT export buttons. Search and New/Exported/All filters apply across sections.
+Each section exports all matching rows for its service, across pages, with one
+unique full URL per line. Filenames use Indian time (Asia/Kolkata):
+  YouTube_YYYY-MM-DD.txt / Lovable_YYYY-MM-DD.txt
+  Notion_YYYY-MM-DD.txt / NordVPN_YYYY-MM-DD.txt
+Export all TXT keeps the combined Decoded_Links_YYYY-MM-DD.txt option.
+Exported links remain available; snapshots can be downloaded again. TXT files
+only download to a PC when requested. Cloud export limit: 10,000 matching records.
+Admins can view a selected user's history/exports. Your capture setup always
+belongs to the signed-in account, even while viewing another user's history.
 
-SET THE MAIN WEBPAGE
-1. Enter the final URL of the webpage containing your reward links.
-2. Use * for changing parts. For example https://www.linkedin.com/your-page*
-   also matches query strings. A URL without * matches the full URL exactly.
-3. Leave Minimum decoded links at 4 for your four-link page.
-   Change it if a different number is expected. This is a MINIMUM, not a cap.
-4. Save settings with Enable automatic capture checked.
-5. Open that page in a profile launched through this panel.
-6. Preview decoded links lets you check what matches without exporting.
-
-The collector reads all matching reward anchors in the MAIN document. It does
-not auto-scroll, click buttons, enter iframes or inspect closed shadow roots.
-Links must exist in the page HTML with their URL in an anchor's href attribute.
-The source webpage itself has not been supplied, so confirm Preview on your
-real page. If that page hides links until a button is clicked, browse normally
-until the links appear. The given long-link formats decode without visiting them.
-
-TIMING AND NOTIFICATIONS
-- Page navigation and DOM changes trigger checks; a one-second fallback checks
-  pages that are already open or newly created.
-- Target: capture, decode and save within 2–3 seconds after the matching links
-  exist in the main document. This is not a hard guarantee for every PC/site.
-- Every matching link is saved even before the configured minimum is reached.
-- The green success popup waits for the minimum (default 4). Monitored profiles
-  show progress such as 3/4 while fewer links are present.
-- On Windows a custom desktop popup appears at the bottom-right of the primary
-  screen, above the taskbar, after local database save. It does not require
-  browser notification permission and does not intentionally take keyboard focus.
-- The in-page popup remains as a fallback. Other operating systems get this
-  in-page fallback; the desktop popup is Windows-specific.
-- The message confirms LOCAL capture/decoding. Check cloud status before
-  treating those links as protected from PC loss. Cloud sync runs independently.
-- Existing links are deduplicated per account/profile/rule and decoded URL.
-  Cloud deduplication is per panel user/profile/decoded URL.
-
-EXPORTS / INDIAN DATES
-- Export TXT prepares a text file with one complete decoded URL per line.
-- Filename example: Decoded_Links_2026-10-25.txt (date uses Asia/Kolkata).
-- Downloads with the same filename may get a browser-added number.
-- The default view is New / unexported. After preparing a TXT export, those
-  records move to Exported history. Nothing is deleted automatically.
-- Export history retains the exact URLs in each TXT snapshot for repeat downloads.
-- A prepared export does not prove your browser successfully wrote the download;
-  if the file was blocked/lost, use Download again.
-- Select All links to include exported records in another export.
-- Search and status filters apply to exports. Cloud exports support up to
-  10,000 matching records and 8 MiB of URL text per snapshot; narrow the search
-  for larger datasets. Local TXT snapshots also have an 8 MiB content limit.
-- Each TXT contains unique URL lines even if several profiles captured the
-  same final URL. The panel's rows retain the individual profile history.
-- Local CSV/JSON exports are still available as additional raw data exports;
-  the New/Exported workflow is tied to TXT snapshots.
-
-PC RESET / DATA SAFETY
-When logged in, captures and locally prepared TXT export snapshots are queued
-for upload to MongoDB. Only acknowledged cloud data survives deletion of the
-local cache. Check the cloud status and Cloud history before resetting a PC.
-After a reset, reinstall, log in and open Cloud history to retrieve synced links.
-Re-enter local GoLogin API tokens on the new installation.
-Cloud storage still needs capacity monitoring and independent backups.
-Do not delete your Atlas database or assume cloud storage cannot lose data.
-
-LOCAL FILES / USER SEPARATION
-The data folder contains the local database, caches, encrypted GoLogin tokens
-and the cloud session. Each panel user/server pair gets a separate cache under
-its own generated subdirectory. Do not delete this folder while updating.
-Existing v1 local data remains in the original local-mode database; it is not
-automatically assigned/uploaded to a new panel user. Log out to inspect it.
-Use an export from the v1/local view if you need a portable copy of older data.
-Panel login protects CLOUD access; a person with administrator access to the
-Windows PC can still inspect local files. Use separate Windows accounts on
-shared PCs if local privacy is required. Only authenticated backend requests
-can read/write another PC's cloud data; client-supplied owner IDs are ignored
-for capture uploads and access to other users is restricted to admin roles.
-
-STOP SAFELY
-1. Click Stop & sync for each open profile. Wait until each shows closed.
-2. Check cloud status; wait until queued uploads and snapshots finish syncing.
-3. Click Exit app, then close the command window.
-Do not force-close the command window while a profile is running or syncing.
-If GoLogin profile upload fails, the session stays in error for a sync retry.
-
-TROUBLESHOOTING
-- No links? Confirm the final main-page URL, wildcard and enabled setting.
-- Success popup missing? Check the minimum count and Monitored profiles status.
-- Demo works but real page doesn't? Use Preview. Links in a frame or buttons
-  without href need an adapter even though the wrapper itself can be decoded.
-- Cloud history empty? Check the logged-in panel user, view filter and sync status.
-- Cloud user switched? Stop all profiles before logging out or signing in again.
-- Login expired? Stop profiles and sign in again using the same user to resume
-  that user's local queue. Do not switch users to upload another user's queue.
-- Wrong profile account? Select the right GoLogin account and Load profiles.
-- Atlas connection error? Read DEPLOY_RAILWAY.txt and check network access.
-- Port in use? The app may already be running at http://127.0.0.1:8765.
-- Never share your MongoDB connection password, GoLogin tokens or panel password.
+PASSWORDS / STORAGE
+Any non-empty password up to 128 characters is accepted, as in v4.0.1.
+Existing passwords are not changed by deployment. Change/reset them in the panel;
+editing ADMIN_PASSWORD in Railway does not reset an existing administrator.
+History and snapshots remain in MongoDB. The panel stores its login only for that
+browser tab; the permanent script comes from encrypted server storage. Keep MongoDB
+backups, a private backup of SCRIPT_ENCRYPTION_KEY and monitor database storage.
 
 DEVELOPERS / VERIFICATION
-Local app: npm ci; npm start. Requires Node 24.x.
-Logic/API tests: npm test.
-Optional Chromium browser test: npm run test:browser (Chrome/Edge installed).
-Cloud backend: cd cloud; npm ci; npm start with the variables in the example.
-Root railway.json and cloud/Dockerfile build only the cloud backend dependency
-set. The GoLogin SDK/browser is NOT installed or launched on Railway.
-See TEST_RESULTS.txt for verified behavior and untested deployment/Windows limits.
+Node 24, MongoDB driver 7.7.0. Start: npm start / node cloud/server.mjs.
+Railway Dockerfile: cloud/Dockerfile. Health: /health.
+Permanent scripts use AES-256-GCM with user/version/revision context. The random
+capture key is looked up by a SHA-256 hash; no server encryption secret or login
+session is embedded. The permanent_scripts collection has no expiry/TTL index.
+Tests: npm ci, npm test. Optional browser tests: npm run test:browser with an
+installed Chrome/Edge or CHROME_PATH. See TEST_RESULTS.txt for verification limits.
+Legacy authenticated sync endpoints remain for migration; no PC receiver ships.

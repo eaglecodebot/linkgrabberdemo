@@ -47,3 +47,10 @@ export function indianFilename(title = 'Decoded_Links', date = new Date()) {
   const stamp = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
   return title.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60) + '_' + stamp + '.txt';
 }
+
+// An absent service means the combined export; reject unsupported filters.
+export function exportTitle(service) {
+  if (!service) return 'Decoded_Links';
+  if (!['YouTube', 'Lovable', 'Notion', 'NordVPN'].includes(service)) throw new Error('Select a supported service.');
+  return service;
+}
