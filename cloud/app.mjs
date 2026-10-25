@@ -1,3 +1,4 @@
+import { textExport } from './text-export.mjs';
 import http from 'node:http';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -162,10 +163,11 @@ export function createApp(repo, { publicOrigin = '', trustProxy = false, scriptS
           if (Buffer.byteLength(urls.join('\n')) > 8 * 1024 * 1024) throw new Error('Export is too large. Narrow the search.');
           const now = new Date(), item = { _id: randomUUID(), ownerId: target, format, filename: indianFilename(title, now, format), createdAt: now.toISOString(), count: urls.length, urls, ...(format === 'xlsx' ? { worksheets: exportWorksheets(rows, urls) } : {}) };
           const buffer = format === 'xlsx' ? await excelBuffer(item) : null;
+          const txt = format === 'txt' ? textExport(item) : null;
           await repo.addExport(item); await repo.markExported(target, rows.map(r => r._id));
-          return buffer ? sendExcel(res, item, buffer) : send(res, { export: item });
+          return buffer ? sendExcel(res, item, buffer) : send(res, { export: { ...item, text: txt } });
         }
-        if (route === '/api/exports/get' && req.method === 'GET') { const item = await repo.exportById(owner, text(params.id, 100)); if (!item) return send(res, { error: 'Export not found.' }, 404); if(item.format==='xlsx')return sendExcel(res,item,await excelBuffer(item)); return send(res, { export: item }); }
+        if (route === '/api/exports/get' && req.method === 'GET') { const item = await repo.exportById(owner, text(params.id, 100)); if (!item) return send(res, { error: 'Export not found.' }, 404); if(item.format==='xlsx')return sendExcel(res,item,await excelBuffer(item)); return send(res, { export: { ...item, text: textExport(item) } }); }
         return send(res, { error: 'Not found.' }, 404);
       }
       const files = { '/': ['index.html','text/html'], '/app.js': ['app.js','text/javascript'], '/style.css': ['style.css','text/css'], '/capture':['capture.html','text/html'], '/capture.js':['capture.js','text/javascript'] };

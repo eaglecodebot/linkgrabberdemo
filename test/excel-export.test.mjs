@@ -89,3 +89,26 @@ test('Excel filenames use the Indian date; TXT defaults and old snapshots remain
     await f.seed(f.alice.id, urls); const response = await f.request('exports', f.auth.token, {}); assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8'); assert.deepEqual((await response.json()).export.urls, urls);
   } finally { await f.close(); }
 });
+
+
+test('All TXT exports group mixed links and legacy snapshots by service without changing URLs', async () => {
+  const f = await fixture(); try {
+    const second = urls[0] + '&second=%2B%26';
+    const mixed = [urls[4], urls[0], urls[3], urls[1], second, urls[2]];
+    await f.seed(f.alice.id, mixed);
+    const result = await (await f.request('exports', f.auth.token, {})).json();
+    const expected = 'YouTube\r\n\r\n' + urls[0] + '\r\n' + second + '\r\n\r\nLovable\r\n\r\n' + urls[1] + '\r\n\r\nNotion\r\n\r\n' + urls[2] + '\r\n\r\nNordVPN\r\n\r\n' + urls[3] + '\r\n\r\nHeadspace\r\n\r\n' + urls[4] + '\r\n';
+    assert.equal(result.export.text, expected);
+    assert.deepEqual(result.export.urls, mixed);
+    f.repo.links.clear();
+    const again = await (await f.request('exports/get?id=' + result.export._id, f.auth.token)).json();
+    assert.equal(again.export.text, expected);
+    await f.repo.addExport({ _id: 'legacy-mixed', ownerId: f.alice.id, filename: 'Decoded_Links_2026-10-25.txt', urls: mixed, count: mixed.length, createdAt: '2026-10-25T00:00:00Z' });
+    assert.equal((await (await f.request('exports/get?id=legacy-mixed', f.auth.token)).json()).export.text, expected);
+    await f.seed(f.alice.id, [urls[0]]);
+    const singleAll = await (await f.request('exports', f.auth.token, {})).json();
+    assert.equal(singleAll.export.text, 'YouTube\r\n\r\n' + urls[0] + '\r\n');
+    const service = await (await f.request('exports', f.auth.token, { service: 'YouTube', status: 'all' })).json();
+    assert.equal(service.export.text, urls[0] + '\r\n');
+  } finally { await f.close(); }
+});

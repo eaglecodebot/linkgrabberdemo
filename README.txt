@@ -1,5 +1,11 @@
-LINK GRABBER WEB v6.2.0
+LINK GRABBER WEB v6.2.1
 ======================
+
+ORGANIZED TXT EXPORT v6.2.1
+Export all TXT groups full links under YouTube, Lovable, Notion, NordVPN and
+Headspace headings, with blank lines between sections. Empty sections are omitted.
+Service-only TXT files remain plain URL lists. Download again also groups older
+combined TXT snapshots using their original saved links. No links are deleted.
 
 EXCEL EXPORT v6.2.0
 TXT export remains available. Export Excel downloads one .xlsx workbook with a

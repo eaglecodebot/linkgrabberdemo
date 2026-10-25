@@ -1,3 +1,7 @@
+TXT GROUPING UPDATE v6.2.1
+Replace all files, redeploy Railway, then Ctrl+F5 the panel.
+No environment changes or script regeneration required.
+
 LINK GRABBER WEB v6.2 — RAILWAY
 ============================
 

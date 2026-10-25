@@ -59,7 +59,7 @@ const sections = createLinkSections({ container: $('link-sections'), load: p => 
   copy: async rows => { await navigator.clipboard.writeText(rows.map(r => r.url).join('\n')); note(rows.length + ' URLs copied.'); },
   exportSection: (service, format) => exportLinks(service, format), date, onError: message=>note(message,'error') });
 function saveFile(blob,filename){const url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);}
-function download(item){saveFile(new Blob([item.urls.join('\r\n')+'\r\n'],{type:'text/plain;charset=utf-8'}),item.filename);}
+function download(item){saveFile(new Blob([item.text??(item.urls.join('\r\n')+'\r\n')],{type:'text/plain;charset=utf-8'}),item.filename);}
 async function downloadExcel(path,data){const response=await request(path,data);const filename=response.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1]||'Decoded_Links.xlsx';saveFile(await response.blob(),filename);}
 async function renderUsers() {
   if (me.role !== 'admin') return;
