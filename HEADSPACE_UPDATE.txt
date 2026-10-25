@@ -1,0 +1,15 @@
+HEADSPACE DEMO CONFIGURED — v6.1.4
+
+1. Replace the application files in your GitHub repo and redeploy Railway.
+2. Keep all existing variables and SCRIPT_ENCRYPTION_KEY unchanged.
+3. Refresh the panel with Ctrl+F5.
+4. Admin -> Capture settings -> enable Headspace -> Save capture settings.
+5. Run the SAME existing v6 script on the configured source webpage.
+
+The collector recognizes checkout.headspace.com with voucherCode, unwraps the
+LinkedIn safety/go URL and preserves the full destination/voucher exactly.
+Generic Headspace pages are excluded. Selected Headspace links save to their
+own tab, are checked for duplicates and export as Headspace_YYYY-MM-DD.txt (IST).
+No extra browser opening/redemption is needed to decode this voucher URL.
+No new env variables or script regeneration needed. Existing service settings
+remain as saved; enabling Headspace is the administrator's choice.

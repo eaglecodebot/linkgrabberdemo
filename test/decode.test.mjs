@@ -25,7 +25,11 @@ test('TXT filenames use the Indian calendar date across a UTC midnight boundary'
   assert.equal(indianFilename('Decoded_Links', new Date('2026-10-24T20:00:00Z')), 'Decoded_Links_2026-10-25.txt');
 });
 
-test('Headspace official redemption/checkout patterns decode without touching destinations',()=>{
- for(const url of ['https://www.headspace.com/code','https://checkout.headspace.com/checkout?voucherCode=EXAMPLE%2Bkeep','https://work.headspace.com/linkedin/member'])assert.equal(perkLink(wrap(url)).service,'Headspace');
- for(const url of ['https://headspace.com/','https://headspace.com.evil.test/code','https://help.headspace.com/code','https://headspace.com/codex'])assert.equal(perkLink(url),null);
+test('Headspace LinkedIn checkout vouchers decode from wrappers with the full code preserved',()=>{
+ const url='https://checkout.headspace.com/checkout?voucherCode=LINKEDIN-ABCDEF0123456789';
+ for(const input of [url,wrap(url),wrap(wrap(url))]){const actual=perkLink(input);assert.equal(actual.service,'Headspace');assert.equal(actual.url,url);}
+ const encoded='https://checkout.headspace.com/checkout?voucherCode=LINKEDIN-A%2BB%26C%3DD%252F&origin=keep#fragment';assert.equal(perkLink(wrap(encoded)).url,encoded);
+});
+test('Headspace generic pages, wrong/empty voucher fields and lookalike hosts are excluded',()=>{
+ for(const url of ['https://headspace.com/','https://www.headspace.com/code','https://work.headspace.com/linkedin/member','https://checkout.headspace.com/checkout','https://checkout.headspace.com/checkout?voucherCode=','https://checkout.headspace.com/checkout?code=EXAMPLE','https://checkout.headspace.com/checkout?vouchercode=EXAMPLE','https://checkout.headspace.com.evil.test/checkout?voucherCode=EXAMPLE','https://help.headspace.com/checkout?voucherCode=EXAMPLE'])assert.equal(perkLink(wrap(url)),null);
 });

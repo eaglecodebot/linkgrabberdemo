@@ -1,5 +1,48 @@
-LINK GRABBER WEB v6.1.0
+LINK GRABBER WEB v6.1.4
 ======================
+
+HEADSPACE LINKEDIN VOUCHERS v6.1.4
+Headspace is now matched to the supplied demo format:
+  https://checkout.headspace.com/checkout?voucherCode=LINKEDIN-...
+Only checkout.headspace.com links with a nonempty voucherCode parameter count as
+Headspace rewards. Generic Headspace home/code/help/work links are excluded.
+LinkedIn safety/go wrappers are decoded locally; the full destination and exact
+voucher encoding are retained. No reward link is opened or redeemed.
+After deploying, enable Headspace in the ADMIN capture settings and Save.
+Existing global service selections stay unchanged until the admin edits them.
+No new env variable, database reset or permanent-script regeneration is needed;
+existing v6 scripts load the updated service rules from Railway on each run.
+The actual supplied wrapper was verified offline. Browser/API capture, duplicate
+checking, category counts and Headspace TXT export use synthetic voucher codes.
+
+SERVICE TAB VISIBILITY v6.1.3
+Disabled services with no links matching the current history filters are hidden.
+For example, Headspace (0) is hidden while Headspace capture is off. An enabled
+service stays visible even at zero. If a disabled service has matching saved
+links, its tab stays available so history and exports remain accessible.
+Changing filters or selected users recalculates visibility. If the active tab
+becomes hidden, the first visible service is selected. Keyboard navigation skips
+hidden tabs. With no visible services, the panel shows a simple empty state.
+Open panels pick up saved admin settings during their usual five-second refresh;
+admin form edits are not overwritten by background refreshes. No env change or
+script regeneration is needed. Redeploy and refresh with Ctrl+F5.
+
+PANEL CLEANUP v6.1.2
+The capture card has one Copy my script button. Raw code is collapsed under
+View script; repeated explanations and the second copy button are removed.
+If clipboard access is blocked, View script opens and selects the code for Ctrl+C.
+
+Temporary panel notices close automatically: success/info after 4 seconds,
+warnings after 6, errors after 8. The x button closes one immediately. Hover or
+keyboard focus pauses dismissal while reading. A replacement message gets its
+own timer; repeated background refresh errors are not shown continuously.
+Revocation reasons stay in the capture card beside Regenerate script.
+Redeploy and refresh panel tabs with Ctrl+F5. No env or script replacement needed.
+
+DISPLAY UPDATE v6.1.1
+Date/time now appears to the left of the URL, in the same row, in user and admin
+histories. The URL stays one horizontally scrollable line. Redeploy and refresh
+with Ctrl+F5. No environment variable, setting or script replacement is needed.
 
 UPDATE FROM v6 — REVOCATION DISPLAY FIX
 Upload/redeploy the updated application files, keep the same database and all
@@ -73,11 +116,13 @@ No extension, PC program, BAT, PowerShell, GoLogin API key or local receiver.
 Normal capture does not replace your clipboard. Deliberate copy actions do.
 
 HISTORY / EXPORTS
-- Tabs across the top show YouTube (count), Lovable (count), Notion (count),
-  NordVPN (count) and Headspace (count). Click a tab to see that service alone.
+- Tabs show enabled services and any disabled services with matching saved
+  history, with counts. Disabled empty tabs are hidden. Click a service tab to
+  see only its links.
 - Counts respect the selected user, search and New/Exported/All filters.
 - Each tab keeps its own pagination, Copy displayed links and Export TXT.
-- Entries show only the full URL and date/time in Indian time (Asia/Kolkata).
+- Each entry shows the IST date/time on the LEFT, the full URL in the middle,
+  and Copy on the right, all in the same row.
   Long links stay on one line with horizontal scrolling; saved URLs are intact.
 - Service exports include all matching rows across pages, one URL per line:
     YouTube_YYYY-MM-DD.txt, Lovable_YYYY-MM-DD.txt, Notion_YYYY-MM-DD.txt,
@@ -142,14 +187,12 @@ and signed query encoding. Direct supported reward URLs work too:
 - lovable.dev / www.lovable.dev: nonempty reward_code query.
 - notion.com / www.notion.com: nonempty code query.
 - nordvpn.com / www.nordvpn.com: nonempty code query.
-- Headspace: headspace.com, checkout.headspace.com, work.headspace.com;
-  code/voucher/promo/coupon queries, redemption/checkout paths or LinkedIn paths.
-Headspace patterns cover official redemption/checkout forms. A real LinkedIn
-Headspace perk sample was not supplied or live-tested; a different destination
-format may need an additional server-side recognition rule. v6 fetches rules from
-Railway, so routine recognition-rule updates need no user script regeneration.
-Official examples: https://www.headspace.com/code and
-https://checkout.headspace.com/checkout?origin=modal&voucherCode=ANNUAL40OFF
+- Headspace: checkout.headspace.com with a nonempty voucherCode query, matching
+  the supplied LinkedIn checkout-voucher format.
+The supplied Headspace wrapper was decoded and verified offline; synthetic
+vouchers are used in the packaged tests. The live LinkedIn DOM and checkout
+redemption were not visited. Routine recognition rules are read from Railway,
+so this recognition update does not require replacing users' v6 scripts.
 Only main-document a[href] links are read. No iframe/shadow-root/click-only
 adapters or universal redirect resolver. Limit: 5,000 unique links / 2 MiB packet.
 

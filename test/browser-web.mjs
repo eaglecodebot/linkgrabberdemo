@@ -15,7 +15,7 @@ const source=http.createServer((req,res)=>{
  const query=new URL(req.url,'http://localhost').searchParams,variant=query.get('variant')||'FIRST',count=Number(query.get('count')??4);
  if(query.get('csp'))res.setHeader('Content-Security-Policy',"default-src 'none';connect-src 'none';script-src 'none';style-src 'none';frame-src 'none'");
  if(query.get('coop'))res.setHeader('Cross-Origin-Opener-Policy','same-origin');
- const urls=['https://youtube.com/premium?acc='+variant,'https://lovable.dev/lp/test?reward_code='+variant,'https://www.notion.com/redeem/linkedin?code='+variant,'https://nordvpn.com/linkedin/?code='+variant,'https://checkout.headspace.com/checkout?voucherCode='+variant];
+ const urls=['https://youtube.com/premium?acc='+variant,'https://lovable.dev/lp/test?reward_code='+variant,'https://www.notion.com/redeem/linkedin?code='+variant,'https://nordvpn.com/linkedin/?code='+variant,'https://checkout.headspace.com/checkout?voucherCode=LINKEDIN-'+variant];
  res.setHeader('Content-Type','text/html');res.end('<!doctype html><html><head><title>Reward demo</title></head><body><h1>Fake source page</h1>'+urls.slice(0,count).map((url,i)=>'<p><a href="https://www.linkedin.com/safety/go/?url='+encodeURIComponent(url)+'">Reward '+i+'</a></p>').join('')+'</body></html>');
 });source.listen(0,'127.0.0.1');await once(source,'listening');const sourceOrigin='http://127.0.0.1:'+source.address().port;
 const api=async(path,token='',data)=>{const response=await fetch(origin+'/api/'+path,{headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},...(data===undefined?{}:{method:'POST',body:JSON.stringify(data)})});const body=await response.json();if(!response.ok)throw new Error(body.error);return body;};
@@ -25,14 +25,29 @@ try{
  await api('admin/users',admin.token,{username:'bob',password:'bob-long-password'});
  await api('settings',admin.token,{pagePattern:sourceOrigin+'/perks*'});
  browser=await puppeteer.launch({executablePath,headless:true,args:process.env.TEST_NO_SANDBOX==='1'?['--no-sandbox']:[]});
+ await browser.defaultBrowserContext().overridePermissions(origin,['clipboard-read','clipboard-write','clipboard-sanitized-write']);
  const panel=await browser.newPage();panel.on('pageerror',e=>errors.push(e.message));await panel.setViewport({width:1440,height:1000});await panel.goto(origin);
  await panel.type('#username','alice');await panel.type('#password','alice-long-password');await panel.click('#login button');await panel.waitForFunction(()=>!document.querySelector('#workspace').hidden);
  assert.equal(await panel.$eval('#admin',n=>n.hidden),true);assert.equal(await panel.$eval('#configured-page',n=>n.textContent),sourceOrigin+'/perks*');
  assert.equal(await panel.$('#minimum-links'),null);
+ await panel.waitForFunction(()=>document.querySelectorAll('.service-tab:not([hidden])').length===4);assert.equal(await panel.$eval('#tab-headspace',n=>n.hidden),true);await panel.click('#tab-youtube');await panel.keyboard.press('End');assert.equal(await panel.$eval('#tab-nordvpn',n=>n.getAttribute('aria-selected')),'true');await panel.click('#tab-youtube');
  const forbidden=await panel.evaluate(async()=>{const r=await fetch('/api/settings',{method:'POST',headers:{Authorization:'Bearer '+sessionStorage.getItem('lg-cloud-token'),'Content-Type':'application/json'},body:JSON.stringify({pagePattern:'https://evil.test/*',enabledServices:['Headspace']})});return r.status;});assert.equal(forbidden,403);
  await panel.waitForFunction(()=>!document.querySelector('#regenerate-script').hidden);assert.equal(repo.permanentScripts.size,0);await panel.click('#regenerate-script');await panel.waitForFunction(()=>document.querySelector('#console-script').value.includes('captureKey'));await panel.click('#generate-script');
  let script=await panel.$eval('#console-script',node=>node.value);
  const authToken=await panel.evaluate(()=>sessionStorage.getItem('lg-cloud-token'));assert(!script.includes(authToken));
+ assert.equal(await panel.$$eval('#capture-setup button',nodes=>nodes.filter(n=>n.textContent==='Copy my script').length),1);assert.equal(await panel.$('#copy-script'),null);
+ assert.equal(await panel.$eval('#script-area',n=>n.tagName),'DETAILS');assert.equal(await panel.$eval('#script-area',n=>n.open),false);
+ await panel.click('#notice-dismiss');assert.equal(await panel.$eval('#notice',n=>n.hidden),true);
+ await panel.click('#generate-script');await panel.waitForFunction(()=>!document.querySelector('#notice').hidden);await panel.waitForFunction(()=>document.querySelector('#notice').hidden,{timeout:5000});
+ await panel.evaluate(()=>note('Temporary warning','warning'));await panel.waitForFunction(()=>document.querySelector('#notice').hidden,{timeout:7000});
+ await panel.evaluate(()=>{document.querySelector('#manual-capture').closest('details').open=true;document.querySelector('#manual-capture').value='invalid';});await panel.click('#import-capture');await panel.waitForFunction(()=>!document.querySelector('#notice').hidden&&document.querySelector('#notice').dataset.level==='error');await panel.waitForFunction(()=>document.querySelector('#notice').hidden,{timeout:9000});
+ // Replacing a notice cancels its previous timer; the new one gets its own time.
+ await panel.evaluate(()=>{note('First message');setTimeout(()=>note('Replacement warning','warning'),2500);});await panel.waitForFunction(()=>document.querySelector('#notice-text').textContent==='Replacement warning');await new Promise(r=>setTimeout(r,1800));assert.equal(await panel.$eval('#notice',n=>n.hidden),false);await panel.click('#notice-dismiss');assert.equal(await panel.$eval('#notice',n=>n.hidden),true);
+ await panel.evaluate(()=>document.querySelector('#manual-capture').closest('details').open=false);
+ assert.equal(await panel.evaluate(()=>navigator.clipboard.readText()),script);
+ await panel.evaluate(()=>{window.originalClipboardWrite=navigator.clipboard.writeText;navigator.clipboard.writeText=async()=>{throw new Error('Test clipboard denial');};});await panel.click('#generate-script');await panel.waitForFunction(()=>document.querySelector('#script-area').open&&document.querySelector('#notice-text').textContent.includes('Ctrl+C'));assert.equal(await panel.$eval('#console-script',n=>n.value),script);await panel.evaluate(()=>{navigator.clipboard.writeText=window.originalClipboardWrite;document.querySelector('#script-area').open=false;});await panel.click('#notice-dismiss');
+ report.compactSingleCopyCard='PASS';report.allToastLevelsAutoDismiss='PASS';report.replacementTimerAndManualDismiss='PASS';report.clipboardAndManualCopyFallback='PASS';
+
  // Hold session restoration and watch the DOM for even a brief login flash.
  await panel.evaluateOnNewDocument(()=>{window.loginFlashed=false;new MutationObserver(()=>{const login=document.getElementById('login-card');if(login&&!login.hidden&&getComputedStyle(login).display!=='none')window.loginFlashed=true;}).observe(document,{subtree:true,childList:true,attributes:true,attributeFilter:['hidden','style','class']});});
  await panel.setRequestInterception(true);let pendingMe;
@@ -72,7 +87,7 @@ try{
  await panel.$eval('#manual-capture',(n,text)=>{n.value=text;},copied);await panel.evaluate(()=>document.querySelector('#manual-capture').closest('details').open=true);await panel.click('#import-capture');await wait(async()=>(await api('links',authToken)).total===20,'web manual import');report.manualFallback='PASS';
  await panel.reload();await panel.waitForFunction(()=>document.querySelector('#count').textContent.startsWith('20 '));
  assert.equal(await panel.$$eval('.service-section',nodes=>nodes.length),5);assert.equal(await panel.$$eval('.service-section:not([hidden])',nodes=>nodes.length),1);
- for(const service of ['youtube','lovable','notion','nordvpn','headspace']){await panel.click('#tab-'+service);assert.equal(await panel.$eval('#section-'+service,n=>n.hidden),false);assert.equal(await panel.$eval('#tab-'+service,n=>n.textContent),({youtube:'YouTube',lovable:'Lovable',notion:'Notion',nordvpn:'NordVPN',headspace:'Headspace'}[service])+' ('+(service==='headspace'?0:5)+')');}
+ for(const service of ['youtube','lovable','notion','nordvpn']){await panel.click('#tab-'+service);assert.equal(await panel.$eval('#section-'+service,n=>n.hidden),false);assert.equal(await panel.$eval('#tab-'+service,n=>n.textContent),({youtube:'YouTube',lovable:'Lovable',notion:'Notion',nordvpn:'NordVPN',headspace:'Headspace'}[service])+' ('+(service==='headspace'?0:5)+')');}
  await panel.click('#tab-youtube');report.serviceTabsAndCounts='PASS';for(const service of ['youtube','lovable','notion','nordvpn'])assert.equal(await panel.$$eval('#links-'+service+' .reward-url',nodes=>nodes.length),5);
  const downloadSession=await panel.createCDPSession();await downloadSession.send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:directory});await panel.click('#export-youtube');
  await wait(async()=>(await api('exports',authToken)).exports.length===1,'section snapshot');const snapshot=(await api('exports',authToken)).exports[0];await wait(()=>existsSync(join(directory,snapshot.filename)),'TXT downloaded');assert.equal(readFileSync(join(directory,snapshot.filename),'utf8').trim().split(/\r?\n/).length,5);assert(snapshot.filename.startsWith('YouTube_'));
@@ -80,6 +95,12 @@ try{
  await panel.setViewport({width:390,height:844});assert(await panel.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  const adminPanel=await browser.newPage();await adminPanel.goto(origin);await adminPanel.type('#username','admin');await adminPanel.type('#password','admin-long-password');await adminPanel.click('#login button');await adminPanel.waitForSelector('#history-user option');await adminPanel.select('#history-user',alice.id);await adminPanel.select('#status','all');await adminPanel.waitForFunction(()=>document.querySelector('#count').textContent.startsWith('20 '));assert.equal(await adminPanel.evaluate(()=>getComputedStyle(document.documentElement).colorScheme),'dark');
  const bob=(await api('admin/users',admin.token)).users.find(u=>u.username==='bob');await adminPanel.select('#history-user',bob.id);await adminPanel.waitForFunction(()=>document.querySelector('#count').textContent.startsWith('0 '));
+ // Empty disabled tabs follow saved settings; switching off the selected tab
+ // selects a visible service and keyboard navigation skips the hidden one.
+ assert.equal(await adminPanel.$eval('#tab-headspace',n=>n.hidden),true);
+ await adminPanel.evaluate(()=>document.querySelector('input[name="service"][value="Headspace"]').checked=true);await adminPanel.click('#settings-form button');await adminPanel.waitForFunction(()=>!document.querySelector('#tab-headspace').hidden);await adminPanel.click('#tab-headspace');
+ await adminPanel.evaluate(()=>document.querySelector('input[name="service"][value="Headspace"]').checked=false);await adminPanel.click('#settings-form button');await adminPanel.waitForFunction(()=>document.querySelector('#tab-headspace').hidden);assert.equal(await adminPanel.$eval('#tab-youtube',n=>n.getAttribute('aria-selected')),'true');assert.equal(await adminPanel.$eval('#section-headspace',n=>n.hidden),true);
+ report.disabledEmptyTabsAndActiveFallback='PASS';
  // Admin changes the shared URL and selected services through the panel.
  await adminPanel.$eval('#page-pattern',(n,value)=>{n.value=value;},sourceOrigin+'/changed*');
  await adminPanel.evaluate(()=>{for(const n of document.querySelectorAll('input[name="service"]'))n.checked=n.value==='YouTube';});
@@ -121,11 +142,14 @@ try{
  await api('settings',admin.token,{pagePattern:sourceOrigin+'/changed*',enabledServices:['Headspace']});
  await page.goto(sourceOrigin+'/changed?variant=HEADSPACE&count=5');await cdp.send('Runtime.evaluate',{expression:bobScript,includeCommandLineAPI:true,userGesture:true});await wait(async()=>await level()==='success','only selected Headspace saved');
  const bobRows=(await api('links',bobAuth.token)).rows;assert.equal(bobRows.length,2);assert.equal(bobRows.filter(r=>r.service==='Headspace').length,1);report.headspaceAndDisabledFiltering='PASS';
+ await cdp.send('Runtime.evaluate',{expression:bobScript,includeCommandLineAPI:true,userGesture:true});await wait(async()=>await level()==='error','Headspace duplicate');assert.match(await page.$eval('#link-grabber-result-v6',n=>n.textContent),/Duplicate links found/);assert.equal((await api('links',bobAuth.token)).total,2);report.headspaceDuplicate='PASS';
  await api('settings',admin.token,{pagePattern:sourceOrigin+'/changed*',enabledServices:['YouTube']});
  await page.goto(sourceOrigin+'/changed?variant='+('LONG'.repeat(100))+'&count=1');await cdp.send('Runtime.evaluate',{expression:bobScript,includeCommandLineAPI:true,userGesture:true});await wait(async()=>await level()==='success','long URL capture');
  await adminPanel.select('#history-user',bob.id);await adminPanel.select('#status','all');await adminPanel.waitForFunction(()=>document.querySelector('#tab-youtube').textContent==='YouTube (2)');
  await adminPanel.click('#tab-youtube');await adminPanel.setViewport({width:390,height:844});
  const rowStyle=await adminPanel.$eval('#links-youtube .service-link',n=>{const a=n.querySelector('a'),meta=n.querySelector('.link-meta');a.scrollLeft=200;return{nowrap:getComputedStyle(a).whiteSpace,overflow:a.scrollWidth>a.clientWidth,scrolled:a.scrollLeft>0,meta:meta.textContent,children:[...meta.children].map(n=>n.tagName)};});
+ assert.equal(await adminPanel.$eval('#tab-headspace',n=>n.hidden),false);assert.equal(await adminPanel.$eval('#tab-headspace',n=>n.textContent),'Headspace (1)');report.disabledSavedHistoryAvailable='PASS';
+ await adminPanel.click('#tab-headspace');await adminPanel.click('#export-headspace');await wait(async()=>(await api('exports',bobAuth.token)).exports.length===1,'Headspace export snapshot');const hsSnapshot=(await api('exports',bobAuth.token)).exports[0];await wait(()=>existsSync(join(directory,hsSnapshot.filename)),'Headspace TXT downloaded');assert.equal(readFileSync(join(directory,hsSnapshot.filename),'utf8').trim(),'https://checkout.headspace.com/checkout?voucherCode=LINKEDIN-HEADSPACE');assert(hsSnapshot.filename.startsWith('Headspace_'));await adminPanel.click('#tab-youtube');report.headspaceTxtDownload='PASS';
  assert.equal(rowStyle.nowrap,'nowrap');assert.equal(rowStyle.overflow,true);assert.equal(rowStyle.scrolled,true);assert.deepEqual(rowStyle.children,['TIME']);assert.match(rowStyle.meta,/IST$/);assert(await adminPanel.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));report.singleLineLinksAndDateOnly='PASS';
  if(process.env.TEST_SCREENSHOTS==='1')await adminPanel.screenshot({path:'/workspace/scratch/d75d63e90043/mobile-panel-v6.png',fullPage:true});
  await api('settings',admin.token,{pagePattern:sourceOrigin+'/changed*',enabledServices:[]});
@@ -148,6 +172,11 @@ try{
  await api('admin/users/update',admin.token,{id:bob.id,active:false});await bobPanel.waitForFunction(()=>!document.querySelector('#login-card').hidden);await api('admin/users/update',admin.token,{id:bob.id,active:true});
  await bobPanel.$eval('#username',n=>n.value='bob');await bobPanel.type('#password','next');await bobPanel.click('#login button');await bobPanel.waitForFunction(()=>!document.querySelector('#regenerate-script').hidden);assert.match(await bobPanel.$eval('#script-status-reason',n=>n.textContent),/disabled and re-enabled/);assert.equal(await bobPanel.$eval('#console-script',n=>n.value),'');
  report.passwordResetLivePanelAndSelfChange='PASS';report.accountDisableRestoreReason='PASS';
+ // With all capture services off and no matching saved rows, no empty tab or
+ // selected panel is left visible. Enabling a service restores it on polling.
+ const emptyPanel=await browser.newPage();await emptyPanel.goto(origin);await emptyPanel.evaluate(t=>sessionStorage.setItem('lg-cloud-token',t),admin.token);
+ await api('settings',admin.token,{pagePattern:sourceOrigin+'/changed*',enabledServices:[]});await emptyPanel.reload();await emptyPanel.waitForFunction(()=>!document.querySelector('#workspace').hidden&&document.querySelector('#configured-services').textContent.includes('paused'));assert.equal(await emptyPanel.$$eval('.service-tab:not([hidden])',n=>n.length),0);assert.equal(await emptyPanel.$$eval('.service-section:not([hidden])',n=>n.length),0);
+ await api('settings',admin.token,{pagePattern:sourceOrigin+'/changed*',enabledServices:['YouTube']});await emptyPanel.waitForFunction(()=>document.querySelector('#tab-youtube').hidden===false);assert.equal(await emptyPanel.$$eval('.service-tab:not([hidden])',n=>n.length),1);await emptyPanel.close();report.noServicesAndLiveSettings='PASS';
  // An expired session reaches the login view only after the server rejects it.
  const expired=await browser.newPage();await expired.goto(origin);await expired.evaluate(()=>sessionStorage.setItem('lg-cloud-token','f'.repeat(64)));await expired.reload();await expired.waitForFunction(()=>!document.querySelector('#login-card').hidden);assert.equal(await expired.$eval('#workspace',n=>n.hidden),true);await expired.close();
  

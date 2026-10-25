@@ -124,10 +124,12 @@ test('only admins can configure the global page/services; disabled links are fil
 });
 test('Headspace captures/export work when enabled and scripts do not change on admin policy changes',async()=>{
  const f=await fixture();try{
-  const headspace='https://checkout.headspace.com/checkout?voucherCode=EXAMPLE%2Bkeep';
+  const headspace='https://checkout.headspace.com/checkout?voucherCode=LINKEDIN-ABCDEF0123456789';
   await f.req('settings',f.admin.token,{pagePattern:'https://source.test/perks*',enabledServices:['Headspace']});
   assert.equal((await f.req('capture-script',f.auth.token,{})).script,f.generated.script);
-  assert.equal((await f.req('capture','',f.packet({links:[{url:headspace},...urls.map(url=>({url}))]}),'https://source.test')).result.added,1);
+  const wrapped='https://www.linkedin.com/safety/go/?url='+encodeURIComponent(headspace)+'&urlhash=example&mt=tracking&isSdui=true&lipi=tracking';
+  assert.equal((await f.req('capture','',f.packet({links:[{url:wrapped},...urls.map(url=>({url}))]}),'https://source.test')).result.added,1);
+  const duplicate=await f.req('capture','',f.packet({links:[{url:headspace}]}),'https://source.test');assert.equal(duplicate.result.code,'duplicates');assert.equal(duplicate.result.added,0);assert.equal(duplicate.result.duplicates,1);
   const snapshot=await f.req('exports',f.auth.token,{service:'Headspace'});assert.match(snapshot.export.filename,/^Headspace_\d{4}-\d{2}-\d{2}\.txt$/);assert.deepEqual(snapshot.export.urls,[headspace]);
   await f.req('settings',f.admin.token,{pagePattern:'https://source.test/perks*',enabledServices:['YouTube']});
   assert.equal((await f.req('links?service=Headspace',f.auth.token)).total,1);
@@ -220,5 +222,17 @@ test('a delayed copy request checks current password/revocation state before ret
   await f.req('admin/users/update',f.admin.token,{id:f.alice.id,password:'new'});release();
   const response=await copy;assert.equal(response.status,401);assert.equal(response.script,undefined);assert.match(response.error,/password was reset/);
   f.repo.permanentScript=original;
+ }finally{await f.close();}
+});
+
+test('all five selected services require Headspace and save decoded vouchers in the fifth category',async()=>{
+ const f=await fixture();try{
+  await f.req('settings',f.admin.token,{pagePattern:'https://source.test/perks*',enabledServices:['YouTube','Lovable','Notion','NordVPN','Headspace']});
+  const config=await f.req('capture-config','',f.packet(),'https://source.test');assert.deepEqual(config.settings.rules.find(rule=>rule.service==='Headspace'),{service:'Headspace',hosts:['checkout.headspace.com'],queryAny:['voucherCode']});
+  const partial=await f.req('capture','',f.packet(),'https://source.test');assert.equal(partial.result.code,'missing-services');assert.deepEqual(partial.result.missing,['Headspace']);assert.equal(f.repo.links.size,0);
+  const destination='https://checkout.headspace.com/checkout?voucherCode=LINKEDIN-ABCDEF0123456789';
+  const response=await f.req('capture','',f.packet({links:[...urls.map(url=>({url})),{url:'https://www.linkedin.com/safety/go/?url='+encodeURIComponent(destination)+'&urlhash=example'}]}),'https://source.test');assert.equal(response.result.added,5);
+  const history=await f.req('links?service=Headspace',f.auth.token);assert.equal(history.total,1);assert.equal(history.rows[0].url,destination);
+  const script=await f.req('capture-script',f.auth.token);assert.equal(script.script,f.generated.script);
  }finally{await f.close();}
 });

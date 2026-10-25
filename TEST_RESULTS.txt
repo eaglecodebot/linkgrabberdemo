@@ -1,99 +1,70 @@
-VERIFICATION — LINK GRABBER WEB v6.1.0 — 25 OCTOBER 2026
-======================================================
+VERIFICATION — LINK GRABBER WEB v6.1.4 — 25 OCTOBER 2026 (IST)
+=============================================================
 
-Automated Node API/logic tests: 36 passed, 0 failed.
-- Admin-only shared main URL/service settings. Direct user POSTs return 403.
-- A global settings document does not overwrite old personal settings.
-- Captures require each selected service, not a numeric count. Four YouTube URLs
-  cannot substitute for Lovable/Notion/NordVPN. Incomplete batches save nothing.
-- Disabled service URLs are filtered by the server. No services pauses capture.
-  Legacy authenticated sync cannot save disabled-service URLs either.
-- Headspace redemption/checkout recognition, selected-service capture and TXT
-  export; switching it off preserves its history.
-- Signed destination query encodings are preserved while decoding wrappers.
-- Script reads/status/copy do not generate replacements. Password reset/change,
-  self/admin revoke and account disable/restore persist distinct reasons. Read
-  endpoints return no script until explicit regeneration. Old keys stay invalid.
-- First-use accounts need Generate script. Old engines require explicit
-  regeneration with a new key. Active v6 scripts stay unchanged on this update.
-- Delayed copy/regenerate requests recheck account and revocation state before
-  returning code. Revocation during generation cannot reactivate a stale key.
-- Explicit generation converges on one slot; stale record writes cannot replace
-  newer keys. Manual revocation atomically advances capture version and saves the
-  reason without ending the current login session.
-- Encryption recovery/context binding, wrong/missing key behavior, script slot
-  concurrency and compare-and-replace guards. Upgrade cannot resurrect a revoked
-  script or overwrite a replacement/newer-password version.
-- User isolation, limited capture-key permissions, wrong-page rejection, manual
-  import ownership, password changes/resets, disable and self/admin revocation.
-- New/duplicate/mixed/missing outcomes; idempotent batch retries retain counts.
-  Storage acknowledgement precedes success. Exported/history rows remain intact.
-- Short passwords, invalid passwords, sessions, export retention and IST filenames.
+Headspace demo verification:
+- The exact user-supplied LinkedIn safety/go wrapper was decoded offline.
+  The full checkout.headspace.com destination and voucherCode matched exactly.
+- Wrapper/direct versions deduplicated to one URL. No destination request,
+  checkout navigation or reward redemption was made.
+- The real voucher is not included in project files/tests. Synthetic values
+  with the same LINKEDIN- voucher format are used in the distributable tests.
+- Recognition now requires checkout.headspace.com and nonempty voucherCode.
+  Generic Headspace home/code/work/help URLs and wrong/empty fields are excluded.
 
-Actual Chromium browser tests: PASSED.
-- The regular user saw a read-only setup summary; an attempted settings API edit
-  returned 403. No numeric minimum input exists.
-- Held the /api/me response during refresh and observed the DOM: the loading view
-  remained visible, the login form stayed hidden and no login flash occurred.
-  Releasing the request restored the workspace and exact stored script. An
-  expired session showed the login form only after rejection.
-- Direct source save: 179 ms in this local synthetic environment. Empty-page
-  error: 3019 ms. A fourth service link added after two seconds was accepted.
-- Missing-service messages named the absent providers. Duplicates added no rows.
-- Strict CSP source: actual click opened a save window, exchanged current rules
-  and returned confirmed success. COOP-isolated windows confirmed their own save
-  without falsely reporting success on the source; fragments were removed.
-- Native Console copy() plus authenticated import passed the manual fallback.
-- Five counted top tabs each showed exactly one panel. Service TXT actually
-  downloaded and contained only that service's URLs with an IST filename.
-- Admin edited the main URL and checkboxes through the actual form. The exact
-  same user script accepted the new configuration, rejected the old URL and
-  worked through both direct and popup paths.
-- Reused Bob's script after switching to Headspace; only Headspace was added,
-  despite all five services being present. Capture-paused message passed.
-- New users saw Generate script, with no permanent record until clicked.
-- An admin revoked a script while its owner's panel stayed open. Polling hid and
-  cleared code and copy buttons, showed the reason and Regenerate script. Reload
-  preserved the reason without a new key. Explicit regeneration created a valid
-  replacement; old code remained invalid. Self-revoke behaved the same way.
-- An admin reset Bob's password through the actual form. Bob's open panel cleared
-  its code, logged out and showed the reason. New login/refresh kept code hidden,
-  the old stored record unchanged, and a password-reset reason until Regenerate
-  was clicked. The explicit replacement then saved successfully.
-- Self password change and disable/re-enable showed their own saved reasons and
-  empty code fields. No automatic replacement occurred.
-- Bob's script saved to Bob while Alice's panel stayed signed in. Source messages
-  identified the correct owner. Admin/self revocation and replacement passed.
-- Dark admin/user views, admin history switching, date/time-only row metadata,
-  one-line long URLs with working horizontal scroll, and no horizontal document
-  overflow at 390px passed. No JavaScript page errors. Screenshots inspected.
+Automated Node API/logic tests: 38 passed, 0 failed.
+- Wrapper/direct/nested Headspace decoding preserves the full URL, encoded
+  delimiters, extra query parameters and fragment without decoding code twice.
+- Selected Headspace capture saves only that service; disabled services are
+  filtered. A repeat returns duplicates and inserts zero new links.
+- Headspace history is categorized separately. TXT export uses Headspace and
+  the IST calendar date and contains the exact full decoded destination.
+- With all five services enabled, a missing Headspace voucher prevents partial
+  saving. A complete batch saves all five in their respective categories.
+- Existing v6 scripts stay byte-identical when admin changes capture settings;
+  current recognition rules are returned by the capture-configuration endpoint.
+- Other four service decoding, owner isolation, admin-only settings, no-links,
+  unsafe inputs, wrong-page rejection, idempotent saves and exports still pass.
+- Short passwords, encryption, revocation reasons, explicit regeneration,
+  stale-copy/generation checks and session invalidation still pass.
+- Mongo query/update behavior uses a repository contract double, including
+  script installation/revocation and duplicate-preserving capture writes.
+
+Actual Chromium browser flow: PASSED.
+- Existing script used after admin switched selection to Headspace. A synthetic
+  LinkedIn wrapper saved one full checkout voucher in Headspace; other four
+  services were ignored. The next execution reported a duplicate, with no insert.
+- Actual Headspace TXT downloaded and matched the full decoded voucher URL.
+- Admin service switches, counted tabs, disabled-empty tab hiding, retained
+  disabled-service history, active-tab fallback and live settings refresh passed.
+- Direct capture, CSP popup fallback, COOP-isolated confirmation and native
+  Console/manual handoff passed. Local direct save: about 190 ms. Local missing-
+  links message: about 3006 ms. These are synthetic local timings only.
+- Correct owner notices, password reset/change, self/admin revoke, explicit
+  regeneration, disabled/restored accounts and no login flash passed.
+- One script copy button, collapsed View script, real clipboard copy/manual copy
+  fallback, auto-dismiss notice durations and manual close passed.
+- Date/time remains on the left, one-line long URLs scroll horizontally, dark
+  panels and 390px layout pass. No browser JavaScript page errors.
 
 Build/package checks:
-- Node syntax checks pass for source, browser and backend modules.
-- Root/cloud versions and lockfiles agree at 6.1.0. Dependencies and Docker
-  configuration are unchanged from v6; no new dependency is required.
-- No new environment variable or dependency is needed for this update.
-- Docker config includes shared/browser/backend files; starts cloud/server.mjs.
-- ZIP excludes node_modules, local data, screenshots, PC launchers and real secrets.
+- Root and cloud package/lock versions agree at 6.1.4; Node syntax checks pass.
+- Production dependencies are unchanged. npm ci installation succeeded.
+- Capture engine remains v6; existing scripts receive updated rules at runtime.
+  No new environment variables or required regeneration. Keep encryption key fixed.
+- ZIP excludes node_modules, local databases, screenshots, real env files and
+  the supplied real voucher code.
 
 Limits:
-- Storage tests use MemoryRepository and a MongoDB query/update contract double,
-  not an actual Atlas instance or native MongoDB engine. No deployment to the
-  user's Railway/GitHub service was performed.
-- The actual LinkedIn DOM and browser policies were not live-tested. Fake source
-  anchors/reward codes were used; no reward destination was visited or redeemed.
-- Headspace's real LinkedIn perk sample was not provided. Tests cover recognized
-  official redemption/checkout URL shapes; a different format may need a rule.
-- Main-document a[href] only; no iframe/shadow-root/click-only adapter.
-- Local timing does not guarantee remote Railway/MongoDB latency. Confirmation
-  needs internet/backend availability; there is no offline queue. Isolation or
-  blocking can require a save window/manual handoff and additional time.
-- Scripts remain private reusable code, not automatic post-refresh installations.
+- Tests use MemoryRepository and Mongo contract doubles, not a live Atlas engine.
+  No deployment to the user's Railway/GitHub service was performed.
+- The supplied URL was verified offline. The live LinkedIn DOM/browser policies
+  and actual checkout redemption were not visited or tested.
+- Collection reads main-document a[href]. No iframe/shadow-root/click-only adapter.
+- Network/database latency and browser isolation can require more time or a save
+  window/manual handoff. Internet is required; there is no offline save queue.
 
 Repeat:
   npm ci
   npm test
   npm run test:browser
-Use installed Chrome/Edge or set CHROME_PATH for browser tests. This run used
-Chromium with the container sandbox disabled for testing only; no such browser
-setting is required of users.
+Use installed Chrome/Edge or CHROME_PATH for browser checks.

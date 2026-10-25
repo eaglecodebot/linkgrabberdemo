@@ -1,6 +1,21 @@
 const $ = id => document.getElementById(id);
 let token = sessionStorage.getItem('lg-cloud-token') || '', me = null, users = [], refreshVersion = 0, scriptRequest = 0, scriptMutation = false, displayedScriptId = '';
-function note(message,level='info') { $('notice').textContent = message; $('notice').className=level==='error'?'error':level==='warning'?'warning':''; $('notice').hidden = false; }
+let noticeTimer=null,noticeDuration=4000,backgroundError='';
+function dismissNotice(){clearTimeout(noticeTimer);noticeTimer=null;$('notice').hidden=true;}
+function scheduleNotice(){clearTimeout(noticeTimer);if(!$('notice').hidden)noticeTimer=setTimeout(dismissNotice,noticeDuration);}
+function note(message,level='info') {
+ const value=String(message),notice=$('notice');
+ if(!notice.hidden&&$('notice-text').textContent===value&&notice.dataset.level===level)return;
+ clearTimeout(noticeTimer);$('notice-text').textContent=value;
+ notice.className=level==='error'?'error':level==='warning'?'warning':'';notice.dataset.level=level;
+ notice.setAttribute('role',level==='error'?'alert':'status');notice.hidden=false;
+ noticeDuration=level==='error'?8000:level==='warning'?6000:4000;scheduleNotice();
+}
+$('notice-dismiss').onclick=dismissNotice;
+$('notice').onmouseenter=()=>clearTimeout(noticeTimer);
+$('notice').onmouseleave=scheduleNotice;
+$('notice').onfocusin=()=>clearTimeout(noticeTimer);
+$('notice').onfocusout=event=>{if(!$('notice').contains(event.relatedTarget))scheduleNotice();};
 function el(tag, text) { const n = document.createElement(tag); if (text !== undefined) n.textContent = text; return n; }
 function action(text, fn) { const b = el('button', text); b.onclick = run(fn); return b; }
 function run(fn) { return async event => { event?.preventDefault(); const b = event?.submitter || (event?.currentTarget?.tagName === 'BUTTON' ? event.currentTarget : null); if (b) b.disabled = true; try { await fn(); } catch (e) { note(e.message,'error'); } finally { if (b?.isConnected) b.disabled = false; } }; }
@@ -10,7 +25,7 @@ async function api(path, data) {
  const b=await r.json();
  if(!r.ok){if(r.status===401&&path!=='login'&&token===requestToken){signOut();note(b.error||'Please log in again.','error');}const e=new Error(b.error||'Request failed.');e.status=r.status;e.scriptStatus=b.scriptStatus;throw e;}return b;
 }
-function clearScript(){displayedScriptId='';$('console-script').value='';$('script-area').hidden=true;$('generate-script').hidden=true;$('revoke-scripts').hidden=true;if(me)sessionStorage.removeItem('lg-web-script:'+me.id);}
+function clearScript(){displayedScriptId='';$('console-script').value='';$('script-area').hidden=true;$('script-area').open=false;$('generate-script').hidden=true;$('revoke-scripts').hidden=true;if(me)sessionStorage.removeItem('lg-web-script:'+me.id);}
 function signOut() {scriptRequest++;clearScript();$('script-status').hidden=false;$('script-status-title').textContent='Checking script…';$('script-status-reason').textContent='';$('regenerate-script').hidden=true;$('retry-script-status').hidden=true;token='';me=null;refreshVersion++;sections.reset();$('exports').replaceChildren();sessionStorage.removeItem('lg-cloud-token');$('workspace').hidden=true;$('login-card').hidden=false;$('auth-loading').hidden=true;$('logout').hidden=true;}
 function renderScriptStatus(status){
  const active=status.status==='active';
@@ -59,10 +74,11 @@ async function renderUsers() {
   }
   $('history-user').value = selected; if (!$('history-user').value) $('history-user').value = me.id;
 }
-function renderSettings(settings) {
+function renderSettings(settings, editForm = false) {
+ sections.setEnabledServices(settings.enabledServices);
  $('configured-page').textContent=settings.configured?settings.pagePattern:'The administrator must configure the main webpage.';
  $('configured-services').textContent=settings.enabledServices.length?settings.enabledServices.join(', '):'Capture paused — no services enabled';
- if(me?.role==='admin'){
+ if(editForm&&me?.role==='admin'){
   $('page-pattern').value=settings.pagePattern;
   for(const input of document.querySelectorAll('input[name="service"]'))input.checked=settings.enabledServices.includes(input.value);
  }
@@ -71,18 +87,18 @@ async function enter() {
  me=(await api('me')).user;
  $('login-card').hidden=true; $('auth-loading').hidden=true; $('workspace').hidden=false; $('logout').hidden=false;
  $('welcome').textContent='Signed in as '+me.name;
- $('capture-owner').textContent='Captures save to '+me.name+' ('+me.username+')';
+ $('capture-owner').textContent='Saving to: '+me.username;
  $('admin').hidden=me.role!=='admin'; $('history-user').hidden=me.role!=='admin';
- renderSettings((await api('settings')).settings);
+ renderSettings((await api('settings')).settings,true);
  sessionStorage.removeItem('lg-web-script:'+me.id);
  await checkScript();
  if(!me)return;await renderUsers();await refresh();
 }
-function showScript(data){renderScriptStatus(data.scriptStatus);displayedScriptId=data.scriptId;$('console-script').value=data.script;$('script-expiry').textContent='Permanent script for '+data.owner.username+' · no automatic expiry. Password changes, disabling or revocation require Regenerate script.';$('script-area').hidden=false;}
+function showScript(data){renderScriptStatus(data.scriptStatus);displayedScriptId=data.scriptId;$('console-script').value=data.script;$('script-area').hidden=false;}
 $('settings-form').onsubmit=run(async()=>{
  const enabledServices=[...document.querySelectorAll('input[name="service"]:checked')].map(input=>input.value);
  await api('settings',{pagePattern:$('page-pattern').value,enabledServices});
- renderSettings((await api('settings')).settings);
+ renderSettings((await api('settings')).settings,true);
  note('Capture settings saved for all users. Their current v6 scripts use the changes automatically.','success');
 });
 async function copyMine(){
@@ -90,15 +106,14 @@ async function copyMine(){
  try{
   const data=await api('capture-script');if(request!==scriptRequest||session!==token||!me)return;showScript(data);
   try{await navigator.clipboard.writeText(data.script);note('Your permanent script is copied. Check Saving to: '+data.owner.username+' on the source page.','success');}
-  catch{$('console-script').focus();$('console-script').select();throw new Error('Script selected. Press Ctrl+C to copy it.');}
+  catch{$('script-area').open=true;$('console-script').focus();$('console-script').select();throw new Error('Script selected. Press Ctrl+C to copy it.');}
  }catch(e){if(session===token&&me){if(e.scriptStatus)renderScriptStatus(e.scriptStatus);else if(e.status)unavailableScript(e.message);}throw e;}
 }
 $('generate-script').onclick=run(copyMine);
-$('copy-script').onclick=run(copyMine);
 $('retry-script-status').onclick=run(checkScript);
 $('regenerate-script').onclick=run(()=>changeScript(async()=>{
  clearScript();const session=token;const data=await api('capture-script/regenerate',{});if(session!==token||!me)return;
- showScript(data);note('Your script is ready. Click Copy my script to use it. Earlier revoked copies remain invalid.','success');
+ showScript(data);note('Script ready. Click Copy my script.','success');
 }));
 $('revoke-scripts').onclick=run(()=>changeScript(async()=>{
  await api('capture-scripts/revoke',{});clearScript();const {scriptStatus}=await api('capture-script/status');renderScriptStatus(scriptStatus);note('All your capture scripts have been revoked.','success');
@@ -108,6 +123,9 @@ $('import-capture').onclick=run(async()=>{const raw=$('manual-capture').value.tr
 async function refresh() {
   if (!me) return;
   const ownVersion = ++refreshVersion;
+    const settings=await api('settings');
+    if(ownVersion!==refreshVersion||!me)return;
+    renderSettings(settings.settings);
     const p = params();
     const selected = users.find(u => u.id === $('history-user').value); $('history-title').textContent = selected ? selected.name + ' — links by service' : 'Your links by service';
     const data = await sections.refresh(p);
@@ -118,7 +136,7 @@ async function refresh() {
     $('exports').replaceChildren();
     for (const item of history.exports) { const row = el('div'); row.className = 'profile-item'; row.append(el('span', item.filename + ' · ' + item.count + ' links · ' + date(item.createdAt)), action('Download again', async () => { const q = params(); q.set('id', item._id); download((await api('exports/get?' + q)).export); })); $('exports').append(row); }
 }
-$('login').onsubmit = run(async () => { const r = await api('login', { username: $('username').value, password: $('password').value }); $('password').value = ''; token = r.token; sessionStorage.setItem('lg-cloud-token', token); $('notice').hidden=true;await enter(); });
+$('login').onsubmit = run(async () => { const r = await api('login', { username: $('username').value, password: $('password').value }); $('password').value = ''; token = r.token; sessionStorage.setItem('lg-cloud-token', token); dismissNotice();await enter(); });
 $('logout').onclick = run(async () => { await api('logout', {}); signOut(); });
 $('create-user').onsubmit = run(async () => { await api('admin/users', { username: $('new-username').value, name: $('new-name').value, password: $('create-password').value }); $('create-password').value = ''; $('new-username').value = ''; $('new-name').value = ''; await renderUsers(); note('User created.'); });
 $('reset-password').onsubmit = run(async () => { await api('admin/users/update', { id: $('reset-user').value, password: $('reset-value').value }); $('reset-value').value = ''; note('Password reset. Earlier sessions and capture scripts are revoked. The user must log in and click Regenerate script.'); });
@@ -127,7 +145,7 @@ async function exportTxt(service) { const p = params(); if (service) p.set('serv
 $('export').onclick = run(() => exportTxt());
 for (const id of ['history-user','status']) $(id).onchange = run(async () => { refreshVersion++; sections.reset(); $('exports').replaceChildren(); await refresh(); });
 let timer; $('search').oninput = () => { clearTimeout(timer); timer = setTimeout(run(async () => { sections.reset(); await refresh(); }), 300); };
-setInterval(()=>{if(me)refresh().catch(e=>note(e.message,'error'));},5000);
+setInterval(()=>{if(me)refresh().then(()=>{backgroundError='';}).catch(e=>{if(backgroundError!==e.message){backgroundError=e.message;note(e.message,'error');}});},5000);
 setInterval(()=>void checkScript(),2000);
 window.addEventListener('focus',()=>void checkScript());
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)void checkScript();});

@@ -28,7 +28,7 @@ export const SERVICE_RULES=[
   {service:'Lovable',hosts:['lovable.dev'],queryAny:['reward_code']},
   {service:'Notion',hosts:['notion.com'],queryAny:['code']},
   {service:'NordVPN',hosts:['nordvpn.com'],queryAny:['code']},
-  {service:'Headspace',hosts:['headspace.com','checkout.headspace.com','work.headspace.com'],queryAny:['code','voucherCode','voucher_code','promoCode','promo_code','couponCode','coupon'],pathPrefixes:['/code','/redeem','/checkout'],pathContains:['linkedin']}
+  {service:'Headspace',hosts:['checkout.headspace.com'],queryAny:['voucherCode']}
 ];
 // Embedded in the permanent script; rules themselves come from the server.
 export function matchRewardLink(input,rules) {

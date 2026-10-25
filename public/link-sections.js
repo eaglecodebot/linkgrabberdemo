@@ -3,7 +3,7 @@
 window.createLinkSections = function ({ container, load, copy, exportSection, date, onError }) {
   const services = ['YouTube', 'Lovable', 'Notion', 'NordVPN', 'Headspace'];
   const groups = new Map();
-  let revision = 0, active = services[0];
+  let revision = 0, active = null, enabledServices = new Set();
   const element = (tag, text, cls) => {
     const node = document.createElement(tag);
     if (text !== undefined) node.textContent = text;
@@ -17,8 +17,10 @@ window.createLinkSections = function ({ container, load, copy, exportSection, da
   };
   const tabs = element('div', undefined, 'service-tabs');
   tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Link services');
-  container.append(tabs);
+  const empty = element('p', 'No services to display for these filters.', 'empty-state');
+  tabs.hidden = true; empty.hidden = true; container.append(tabs, empty);
   function activate(service, focus = false) {
+    if (service && groups.get(service)?.tab.hidden) return;
     active = service;
     for (const group of groups.values()) {
       const selected = group.service === service;
@@ -28,19 +30,32 @@ window.createLinkSections = function ({ container, load, copy, exportSection, da
       if (selected && focus) group.tab.focus();
     }
   }
+  function syncVisibility() {
+    const available = [];
+    let moveFocus = false;
+    for (const group of groups.values()) {
+      const hadFocus = document.activeElement === group.tab;
+      group.tab.hidden = !enabledServices.has(group.service) && group.total === 0;
+      if (group.tab.hidden && hadFocus) moveFocus = true;
+      if (!group.tab.hidden) available.push(group.service);
+    }
+    tabs.hidden = !available.length; empty.hidden = !!available.length;
+    if (!available.includes(active)) active = available[0] || null;
+    activate(active, moveFocus);
+  }
   for (const service of services) {
     const key = service.toLowerCase(), section = element('section', undefined, 'service-section');
-    section.id = 'section-' + key;
+    section.id = 'section-' + key; section.hidden = true;
     section.setAttribute('role', 'tabpanel');
     section.setAttribute('aria-labelledby', 'tab-' + key);
     section.tabIndex = 0;
     const tab = element('button', service + ' (0)', 'service-tab');
-    tab.id = 'tab-' + key; tab.type = 'button'; tab.setAttribute('role', 'tab');
+    tab.hidden = true; tab.id = 'tab-' + key; tab.type = 'button'; tab.setAttribute('role', 'tab');
     tab.setAttribute('aria-controls', section.id); tabs.append(tab);
     tab.onclick = () => activate(service);
     tab.onkeydown = event => {
-      const index = services.indexOf(service);
-      const next = event.key === 'ArrowRight' ? services[(index + 1) % services.length] : event.key === 'ArrowLeft' ? services[(index + services.length - 1) % services.length] : event.key === 'Home' ? services[0] : event.key === 'End' ? services.at(-1) : null;
+      const visible = services.filter(name => !groups.get(name).tab.hidden), index = visible.indexOf(service);
+      const next = event.key === 'ArrowRight' ? visible[(index + 1) % visible.length] : event.key === 'ArrowLeft' ? visible[(index + visible.length - 1) % visible.length] : event.key === 'Home' ? visible[0] : event.key === 'End' ? visible.at(-1) : null;
       if (next) { event.preventDefault(); activate(next, true); }
     };
     const heading = element('div', undefined, 'section-heading');
@@ -96,7 +111,7 @@ window.createLinkSections = function ({ container, load, copy, exportSection, da
       const button = element('button', 'Copy', 'quiet');
       button.setAttribute('aria-label', 'Copy ' + group.service + ' link');
       button.onclick = run(button, () => copy([row]));
-      item.append(link, meta, button); group.list.append(item);
+      item.append(meta, link, button); group.list.append(item);
     }
   }
   let currentRefresh = async () => {};
@@ -118,11 +133,13 @@ window.createLinkSections = function ({ container, load, copy, exportSection, da
       group.rows = data.rows; group.total = data.total; group.page = page;
       render(group);
     }
+    syncVisibility();
     return { total: results.reduce((sum, { data }) => sum + data.total, 0) };
   }
   return {
     refresh,
-    reset() { revision++; for (const group of groups.values()) { group.page = 1; group.rows = []; group.total = 0; render(group); } },
+    setEnabledServices(services) { enabledServices = new Set(services); syncVisibility(); },
+    reset() { revision++; for (const group of groups.values()) { group.page = 1; group.rows = []; group.total = 0; render(group); } syncVisibility(); },
     rows() { return [...groups.values()].flatMap(group => group.rows); }
   };
 };
