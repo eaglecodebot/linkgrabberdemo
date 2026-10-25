@@ -1,0 +1,19 @@
+{
+  "name": "local-link-grabber",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "GoLogin reward-link decoder with local capture and a Railway/MongoDB backend",
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "test:browser": "node test/browser-smoke.mjs"
+  },
+  "dependencies": {
+    "gologin": "3.0.7",
+    "puppeteer-core": "25.16.0"
+  }
+}

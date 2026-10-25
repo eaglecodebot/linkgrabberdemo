@@ -1,0 +1,45 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { once } from 'node:events';
+import { createApp, bootstrap } from '../cloud/app.mjs';
+import { MemoryRepository } from './cloud-memory.mjs';
+test('cloud HTTP permissions, per-user isolation, admin history, export retention and session revocation', { timeout: 30000 }, async () => {
+  const repo = new MemoryRepository(); await bootstrap(repo, 'admin', 'admin-long-password');
+  const server = createApp(repo); server.listen(0,'127.0.0.1'); await once(server,'listening'); const origin = 'http://127.0.0.1:' + server.address().port;
+  async function req(path, token = '', payload) { const r = await fetch(origin+'/api/'+path,{headers:{Authorization:'Bearer '+token,...(payload===undefined?{}:{'Content-Type':'application/json'})},...(payload===undefined?{}:{method:'POST',body:JSON.stringify(payload)})}); return { status:r.status,body:await r.json() }; }
+  const login = async (username,password) => (await req('login','',{username,password})).body;
+  try {
+    assert.equal((await req('links')).status,401);
+    const admin = await login('admin','admin-long-password');
+    const a = (await req('admin/users',admin.token,{username:'alice',password:'alice-long-password'})).body.user;
+    const b = (await req('admin/users',admin.token,{username:'bob',password:'bob-long-password'})).body.user;
+    const alice = await login('alice','alice-long-password'), bob = await login('bob','bob-long-password');
+    assert.equal((await req('admin/users',alice.token)).status,403);
+    assert.equal((await req('links?userId='+b.id,alice.token)).status,403);
+    const capture = { uid:'capture-1',url:'https://youtube.com/premium?acc=alice',profile_id:'p1',profile_name:'Alice Profile',account_name:'Account A',first_seen:new Date().toISOString(),last_seen:new Date().toISOString(),ownerId:b.id,revision:1 };
+    assert.equal((await req('sync',alice.token,{rows:[capture]})).status,200);
+    assert.equal((await req('links',alice.token)).body.total,1);
+    assert.equal((await req('links',bob.token)).body.total,0);
+    assert.equal((await req('links?userId='+a.id,admin.token)).body.rows[0].profile_name,'Alice Profile');
+    assert.equal((await req('exports',bob.token,{userId:a.id})).status,403);
+    const snapshot = (await req('exports',alice.token,{status:'new'})).body.export;
+    assert.deepEqual(snapshot.urls,[capture.url]);
+    assert.equal((await req('links?status=new',alice.token)).body.total,0);
+    assert.equal((await req('links?status=exported',alice.token)).body.total,1);
+    assert.equal((await req('exports/get?id='+snapshot._id,bob.token)).status,404);
+    assert.equal((await req('exports/get?id='+snapshot._id+'&userId='+a.id,admin.token)).status,200);
+    await req('sync',alice.token,{rows:[capture]}); assert.equal((await req('links?status=exported',alice.token)).body.total,1);
+    const localExport = {id:'snapshot-1',createdAt:new Date().toISOString(),urls:[capture.url]};
+    await req('sync-exports',alice.token,{export:localExport});await req('sync-exports',alice.token,{export:localExport});
+    assert.equal((await req('exports',alice.token)).body.exports.length,2);
+    assert.equal((await req('exports',bob.token)).body.exports.length,0);
+    const info = await req('admin/users',admin.token); assert.equal(JSON.stringify(info.body).includes('password'),false);
+    await req('admin/users/update',admin.token,{id:a.id,password:'alice-replacement-password'});
+    assert.equal((await req('links',alice.token)).status,401);
+    const renewed = await login('alice','alice-replacement-password'); assert(renewed.token);
+    await req('admin/users/update',admin.token,{id:a.id,active:false});assert.equal((await req('links',renewed.token)).status,401);
+    assert.equal((await login('alice','alice-replacement-password')).token,undefined);
+    assert.equal((await req('links?userId='+a.id,admin.token)).body.total,1);
+    await req('logout',bob.token,{}); assert.equal((await req('links',bob.token)).status,401);
+  } finally { server.closeAllConnections(); await new Promise(r=>server.close(r)); }
+});

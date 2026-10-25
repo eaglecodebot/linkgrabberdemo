@@ -1,0 +1,93 @@
+DEPLOY THE ADMIN/USER BACKEND TO RAILWAY
+======================================
+The code is included, but no Railway service or MongoDB database has been
+created in your accounts. These steps connect your own infrastructure.
+
+1. MONGODB ATLAS
+- Create/select an Atlas cluster.
+- Use a separate database named link_grabber for this app.
+- Create a dedicated DATABASE user with readWrite permissions for link_grabber.
+  This is different from the users who log in to the app.
+- Copy the driver connection string. Replace its database username/password;
+  percent-encode special characters in the password as required by MongoDB.
+- Configure Atlas Network Access so Railway can connect.
+  Preferred: enable Railway static outbound IPs if your plan supports them,
+  then add ALL of the displayed outbound IPs to Atlas's IP access list.
+  Railway's docs currently list static outbound IPs as a Pro-plan feature.
+  If you choose 0.0.0.0/0 for dynamic-egress testing, it allows connection
+  attempts from every IPv4 address; use a unique strong database password,
+  TLS and the database-scoped role. Narrow network access when practical.
+- Configure database backups appropriate to your Atlas plan. This code does
+  not create Atlas backups automatically.
+
+2. PUT THE SOURCE IN A PRIVATE GITHUB REPOSITORY
+- Create a private repository under your GitHub account.
+- Upload the CONTENTS of the extracted Link_Grabber folder to the repository
+  root. package.json, railway.json, src and cloud must be at its root.
+- Do not upload data, node_modules, real environment files or credentials.
+  The included .gitignore and .dockerignore exclude those local paths.
+
+3. CREATE THE RAILWAY SERVICE
+- Create a Railway project and deploy the GitHub repository.
+- Keep the service root directory at the repository root, not /cloud.
+- The included railway.json uses cloud/Dockerfile automatically.
+- Keep the Docker start command: node cloud/server.mjs.
+  Do NOT use the root npm start command on Railway; that starts the LOCAL app.
+- Generate a public HTTPS domain in the service's Networking settings.
+  If deployment initially fails because variables are missing, generate the
+  domain and finish the variables below, then redeploy.
+
+4. VARIABLES
+Copy the raw format from RAILWAY_ENV_EXAMPLE.txt into Railway's variable editor.
+Replace EVERY placeholder:
+MONGODB_URI   Your actual Atlas driver connection string.
+MONGODB_DB    link_grabber (or a dedicated database name you choose).
+ADMIN_USERNAME  Your first admin username: 3–60 letters/digits/_.-.
+ADMIN_PASSWORD  Your own unique random password, at least 12 characters.
+PUBLIC_URL   The exact https://your-service.up.railway.app origin, no path.
+
+Railway injects PORT; do not hardcode a port or add a guessed PORT variable.
+The cloud server listens on 0.0.0.0 and Railway's injected port.
+The initial administrator is created once. Environment password changes do
+not overwrite an existing admin account/password in MongoDB.
+The example administrator password is deliberately rejected by the server.
+
+5. KEEP THE SERVICE RUNNING
+- Disable Serverless / App Sleeping in the service's deployment settings.
+- Keep your Railway account/service funded and within its configured usage
+  limits. An always-running configuration is not a guarantee against provider
+  outages or stopped/exhausted services.
+- Redeploy after variables/network settings are ready.
+- Health check path: /health. Successful startup logs:
+  Link Grabber cloud backend ready.
+
+6. CREATE YOUR USERS
+- Open the Railway public HTTPS URL and log in as administrator.
+- In User management, enter a username, display name and initial password.
+- Give the user their app credentials and the backend base URL.
+- User management lets you view a specific user's history, reset their password
+  and disable/enable their account. Regular users cannot read other users' data.
+- Ask users to change their initial password after first login using the
+  Change your password option. It revokes existing sessions, so they must
+  log in to the collector again afterward.
+
+7. CONNECT EACH WINDOWS COLLECTOR
+- Install/run the local app with SETUP_WINDOWS.bat and START_WINDOWS.bat.
+- Enter this Railway base URL and that user's panel credentials at the top.
+- Add the user's GoLogin token locally, save the main webpage and launch profiles.
+- Confirm decoded links appear in Cloud history before relying on recovery
+  from a reset or lost PC.
+
+8. RECOVERY CHECK
+- On another PC/browser, open the hosted panel and log in as the same user.
+- Confirm the synced URLs and exported snapshots can be downloaded.
+- Keep independent database backups and monitor MongoDB storage usage.
+- If a secret leaks, rotate the database/GoLogin credential or reset the panel
+  user's password as appropriate. Never embed the MongoDB URI in user installers.
+
+OFFICIAL REFERENCES (checked 25 October 2026)
+https://docs.railway.com/networking/troubleshooting/application-failed-to-respond
+https://docs.railway.com/deployments/serverless
+https://docs.railway.com/networking/static-outbound-ips
+https://www.mongodb.com/docs/atlas/security/ip-access-list/
+https://www.mongodb.com/docs/drivers/node/current/connect/mongoclient/

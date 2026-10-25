@@ -1,0 +1,52 @@
+VERIFICATION — VERSION 2.0, 25 OCTOBER 2026
+
+Automated Node logic/API tests: 16 passed, 0 failed.
+- All four demonstrated LinkedIn wrapper formats decode to complete destinations.
+- Wrapper decoding preserves encoded delimiters, literal plus signs, nested
+  wrapper structure and complete reward codes; rejects unsafe/newline payloads.
+- Supported direct reward URLs work; unrelated links and lookalike domains do not.
+- More than four matching URLs are retained; wrapper/direct duplicates collapse.
+- TXT filename date uses Asia/Kolkata, including Indian/UTC date boundaries.
+- Local database migration, restart persistence, token encryption and API guards.
+- Cloud HTTP login, role restrictions and cross-user read/export denial.
+- Admin can inspect one selected user's links/exports.
+- Export snapshots remain available; repeat sync does not undo export status.
+- User password reset/disable invalidates earlier sessions.
+- Capture owner comes from authenticated user, not uploaded ownerId fields.
+- Empty initial sync does not block links arriving later; failures keep the queue.
+- Failed GoLogin profile sync is retryable; failed launch does not upload an
+  incomplete profile. GoLogin upload error behavior is tested with SDK mocks.
+
+Actual Chromium end-to-end test: PASSED.
+- Three fake links appear immediately; the fourth appears after two seconds.
+- All four were captured and decoded about 2.01 seconds after demo launch.
+- Twenty further newly inserted wrappers were captured/decoded in about 252 ms.
+- Pause prevented capture; resume picked up a pending link in about 504 ms.
+- Success notification appeared after the configured minimum of four was saved.
+- All saved/exported reward URLs were decoded, without visiting destinations.
+- Local collector uploaded captures and TXT snapshots to the cloud HTTP API.
+- Signing in as a different user opened a separate local cache/GoLogin list.
+- Cloud history for the second user did not expose the first user's captures.
+- Admin's actual cloud web UI opened the first user's four-link history.
+- Local and cloud desktop/mobile layouts were checked for horizontal overflow.
+
+The cloud contract/browser tests used in-memory test storage behind the real
+HTTP app. Production code exclusively uses MongoDB. The real MongoDB driver
+installed/imported successfully, but no live Atlas cluster was supplied.
+
+Not live-tested here:
+- Your actual GoLogin credentials, proxy setup or profiles.
+- Your actual source webpage DOM, which has not been supplied.
+- Windows batch launch, Windows DPAPI and the PowerShell desktop overlay.
+- A real MongoDB Atlas connection, Railway deployment or Docker image build.
+
+Local in-page notification and Chromium behavior were verified on Linux.
+Windows notification source is included and needs a first run on your PC.
+The source main page must expose ordinary anchors in the main document.
+Timing results are local demo measurements, not a guarantee for every PC/site.
+
+Repeat tests:
+  npm test
+  npm run test:browser  (Chrome/Edge installed, or CHROME_PATH configured)
+The browser test creates temporary data and fake tokens/reward codes only.
+It does not call the GoLogin account API or redeem any reward links.
