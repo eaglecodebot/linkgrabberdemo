@@ -1,9 +1,9 @@
 // Shared service sections for the hosted admin and user panels.
 // Each service is queried separately, so a large history cannot hide another service.
 window.createLinkSections = function ({ container, load, copy, exportSection, date, onError }) {
-  const services = ['YouTube', 'Lovable', 'Notion', 'NordVPN'];
+  const services = ['YouTube', 'Lovable', 'Notion', 'NordVPN', 'Headspace'];
   const groups = new Map();
-  let revision = 0;
+  let revision = 0, active = services[0];
   const element = (tag, text, cls) => {
     const node = document.createElement(tag);
     if (text !== undefined) node.textContent = text;
@@ -15,10 +15,34 @@ window.createLinkSections = function ({ container, load, copy, exportSection, da
     try { await fn(); } catch (e) { onError(e.message); }
     finally { if (button.isConnected) button.disabled = button.dataset.blocked === 'true'; }
   };
+  const tabs = element('div', undefined, 'service-tabs');
+  tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Link services');
+  container.append(tabs);
+  function activate(service, focus = false) {
+    active = service;
+    for (const group of groups.values()) {
+      const selected = group.service === service;
+      group.tab.setAttribute('aria-selected', String(selected));
+      group.tab.tabIndex = selected ? 0 : -1;
+      group.section.hidden = !selected;
+      if (selected && focus) group.tab.focus();
+    }
+  }
   for (const service of services) {
     const key = service.toLowerCase(), section = element('section', undefined, 'service-section');
     section.id = 'section-' + key;
-    section.setAttribute('aria-labelledby', 'heading-' + key);
+    section.setAttribute('role', 'tabpanel');
+    section.setAttribute('aria-labelledby', 'tab-' + key);
+    section.tabIndex = 0;
+    const tab = element('button', service + ' (0)', 'service-tab');
+    tab.id = 'tab-' + key; tab.type = 'button'; tab.setAttribute('role', 'tab');
+    tab.setAttribute('aria-controls', section.id); tabs.append(tab);
+    tab.onclick = () => activate(service);
+    tab.onkeydown = event => {
+      const index = services.indexOf(service);
+      const next = event.key === 'ArrowRight' ? services[(index + 1) % services.length] : event.key === 'ArrowLeft' ? services[(index + services.length - 1) % services.length] : event.key === 'Home' ? services[0] : event.key === 'End' ? services.at(-1) : null;
+      if (next) { event.preventDefault(); activate(next, true); }
+    };
     const heading = element('div', undefined, 'section-heading');
     const title = element('h3', service); title.id = 'heading-' + key;
     const count = element('span', '0 links', 'service-count');
@@ -39,7 +63,7 @@ window.createLinkSections = function ({ container, load, copy, exportSection, da
     next.setAttribute('aria-label', 'Next ' + service + ' page');
     controls.append(previous, next); pagination.append(pageInfo, controls);
     section.append(heading, actions, list, pagination); container.append(section);
-    const group = { service, section, count, list, pageInfo, previous, next, exportButton, copyButton, page: 1, rows: [], total: 0, signature: '' };
+    const group = { service, tab, section, count, list, pageInfo, previous, next, exportButton, copyButton, page: 1, rows: [], total: 0, signature: null };
     groups.set(service, group);
     exportButton.onclick = run(exportButton, () => exportSection(service));
     copyButton.onclick = run(copyButton, () => copy(group.rows));
@@ -47,7 +71,9 @@ window.createLinkSections = function ({ container, load, copy, exportSection, da
     next.onclick = run(next, async () => { group.page++; await currentRefresh(); });
     render(group);
   }
+  activate(active);
   function render(group) {
+    group.tab.textContent = group.service + ' (' + group.total + ')';
     group.count.textContent = group.total + (group.total === 1 ? ' link' : ' links');
     for (const [button, blocked] of [[group.exportButton, !group.total], [group.copyButton, !group.rows.length], [group.previous, group.page <= 1], [group.next, group.page * 50 >= group.total]]) {
       button.disabled = blocked; button.dataset.blocked = String(blocked);
@@ -62,9 +88,11 @@ window.createLinkSections = function ({ container, load, copy, exportSection, da
       const item = element('li', undefined, 'service-link');
       const link = element('a', row.url, 'reward-url');
       link.href = row.url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+      link.title = row.url;
       const meta = element('div', undefined, 'link-meta');
-      if (row.label) meta.append(element('span', row.label));
-      meta.append(element('span', (row.profile_name || 'Browser console') + ' · ' + date(row.first_seen)));
+      const captured = element('time', date(row.first_seen));
+      captured.dateTime = row.first_seen;
+      meta.append(captured);
       const button = element('button', 'Copy', 'quiet');
       button.setAttribute('aria-label', 'Copy ' + group.service + ' link');
       button.onclick = run(button, () => copy([row]));

@@ -3,7 +3,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { passwordHash, verifyPassword, username, safeUser, hashToken, ownerFor } from './auth.mjs';
 import { perkLink, indianFilename, exportTitle } from '../src/decode.mjs';
-import { acceptCapture, createCaptureScript, captureConfiguration, cleanSettings } from './capture.mjs';
+import { acceptCapture, createCaptureScript, readCaptureScript, captureScriptStatus, revocation, captureConfiguration, cleanSettings, captureSettings } from './capture.mjs';
 
 const text = (value, size = 1000) => String(value || '').slice(0, size);
 function validateLink(row, ownerId) {
@@ -38,7 +38,7 @@ export function createApp(repo, { publicOrigin = '', trustProxy = false, scriptS
     const token = req.headers.authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
     const s = token && await repo.session(hashToken(token));
     const u = s && await repo.userById(s.userId);
-    if (!u?.active || s.version !== u.authVersion) { const e = new Error('Please log in again.'); e.status = 401; throw e; }
+    if (!u?.active || s.version !== u.authVersion) { const e = new Error(s&&u?.scriptRevocation?u.scriptRevocation.reason+' Please log in again.':'Please log in again.'); e.status = 401; throw e; }
     return { user: u, tokenHash: s._id };
   }
   return http.createServer(async (req, res) => {
@@ -88,15 +88,17 @@ export function createApp(repo, { publicOrigin = '', trustProxy = false, scriptS
       if (route.startsWith('/api/')) {
         const { user, tokenHash } = await authenticate(req);
         if (req.method === 'GET' && route === '/api/me') return send(res, { user: safeUser(user) });
-        if (req.method === 'POST' && route === '/api/capture-script') { await body(req);return send(res,await createCaptureScript(repo,user,publicOrigin||'http://'+req.headers.host,scriptSecret)); }
-        if (req.method === 'POST' && route === '/api/capture-scripts/revoke') { await repo.revokeCaptureKeys(user._id);return send(res,{ok:true}); }
+        if(req.method==='GET'&&route==='/api/capture-script/status')return send(res,{scriptStatus:await captureScriptStatus(repo,user,publicOrigin||'http://'+req.headers.host)});
+        if((req.method==='GET'||req.method==='POST')&&route==='/api/capture-script') {if(req.method==='POST')await body(req);return send(res,await readCaptureScript(repo,user,publicOrigin||'http://'+req.headers.host,scriptSecret));}
+        if(req.method==='POST'&&route==='/api/capture-script/regenerate'){await body(req);return send(res,await createCaptureScript(repo,user,publicOrigin||'http://'+req.headers.host,scriptSecret));}
+        if (req.method === 'POST' && route === '/api/capture-scripts/revoke') { await repo.revokeCaptureKeys(user._id,revocation('self-revoked','You revoked your capture script. Regenerate it when you are ready.'));return send(res,{ok:true}); }
         if (req.method === 'POST' && route === '/api/capture-import') {
           const b=await body(req),key=await repo.captureKey(hashToken(String(b.captureKey||'')));
           if(key?.ownerId!==user._id)return send(res,{error:'This capture packet belongs to another user or an invalid script.'},403);
           return send(res,{result:await acceptCapture(repo,b,publicOrigin||'http://'+req.headers.host,publicOrigin||'http://'+req.headers.host)});
         }
         if (req.method === 'POST' && route === '/api/logout') { await repo.revokeSession(tokenHash); return send(res, { ok: true }); }
-        if (req.method === 'POST' && route === '/api/password') { const b = await body(req); if (!await verifyPassword(b.currentPassword, user.password)) return send(res, { error: 'Current password is incorrect.' }, 403); await repo.updateUser(user._id, { password: await passwordHash(b.password) }); return send(res, { ok: true }); }
+        if (req.method === 'POST' && route === '/api/password') { const b = await body(req); if (!await verifyPassword(b.currentPassword, user.password)) return send(res, { error: 'Current password is incorrect.' }, 403); await repo.updateUser(user._id, { password: await passwordHash(b.password),scriptRevocation:revocation('password-changed','Your password was changed. Your earlier script was revoked.') }); return send(res, { ok: true }); }
         if (req.method === 'POST' && route === '/api/check-links') {
           const b = await body(req);
           if (!Array.isArray(b.urls) || b.urls.length > 5000 || b.urls.some(url => typeof url !== 'string' || !perkLink(url))) throw new Error('Invalid reward URL list.');
@@ -114,18 +116,20 @@ export function createApp(repo, { publicOrigin = '', trustProxy = false, scriptS
           if (route === '/api/admin/users/update' && req.method === 'POST') {
             const b = await body(req), u = await repo.userById(text(b.id, 100));
             if (!u || u.role === 'admin') throw new Error('Select a regular user.');
-            const fields = {}; if (typeof b.active === 'boolean') fields.active = b.active;
-            if (Object.hasOwn(b, 'password')) fields.password = await passwordHash(b.password);
-            await repo.updateUser(u._id, fields); return send(res, { ok: true });
+            const fields = {}; if (typeof b.active === 'boolean'&&b.active!==u.active){fields.active=b.active;fields.scriptRevocation=b.active?revocation('account-restored','Your account was disabled and re-enabled. Your earlier script remains revoked.'):revocation('account-disabled','Your account was disabled by an administrator. Your earlier script was revoked.');}
+            if(Object.hasOwn(b,'password')){fields.password=await passwordHash(b.password);fields.scriptRevocation=revocation('password-reset','Your password was reset by an administrator. Your earlier script was revoked.');}
+            if(Object.keys(fields).length)await repo.updateUser(u._id,fields); return send(res, { ok: true });
           }
           if (route === '/api/admin/users/revoke-script' && req.method === 'POST') {
             const b=await body(req),target=await repo.userById(text(b.id,100));
-            if(!target)throw new Error('Select a user.');await repo.revokeCaptureKeys(target._id);return send(res,{ok:true});
+            if(!target)throw new Error('Select a user.');await repo.revokeCaptureKeys(target._id,revocation('admin-revoked','An administrator revoked your capture script. Regenerate it to continue.'));return send(res,{ok:true});
           }
         }
         if (req.method === 'POST' && route === '/api/sync') {
           const b = await body(req); if (!Array.isArray(b.rows) || b.rows.length > 200) throw new Error('Send up to 200 captures per batch.');
           const rows = b.rows.map(r => validateLink(r, user._id));
+          const policy=await captureSettings(repo);
+          if(!policy.configured||rows.some(row=>!policy.enabledServices.includes(row.service)))return send(res,{error:'The administrator has not enabled these capture services.'},403);
           await repo.saveLinks(user._id, rows); return send(res, { accepted: b.rows.map(r => ({ uid: r.uid, revision: Number(r.revision) || 1 })) });
         }
         if (req.method === 'POST' && route === '/api/sync-exports') {
@@ -139,10 +143,11 @@ export function createApp(repo, { publicOrigin = '', trustProxy = false, scriptS
           await repo.saveExport({ _id: hashToken(user._id + ':' + item.id), ownerId: user._id, filename: indianFilename(title, new Date(createdAt)), createdAt, urls: item.urls, count: item.urls.length });
           return send(res, { ok: true });
         }
-        if (route === '/api/settings' && req.method === 'GET') return send(res, { settings: (await repo.settingsFor(user._id))?.value || null });
+        if (route === '/api/settings' && req.method === 'GET') return send(res, { settings: await captureSettings(repo) });
         if (route === '/api/settings' && req.method === 'POST') {
+          if(user.role!=='admin')return send(res,{error:'Only an administrator can change the main webpage and captured services.'},403);
           const settings=cleanSettings(await body(req));
-          await repo.saveSettings(user._id, settings);
+          await repo.saveGlobalCaptureSettings(settings);
           return send(res, { ok: true });
         }
         const owner = ownerFor(user, params.userId);
@@ -163,6 +168,6 @@ export function createApp(repo, { publicOrigin = '', trustProxy = false, scriptS
       if (req.method === 'GET' && route === '/link-sections.js') { res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' }); return res.end(readFileSync(new URL('../public/link-sections.js', import.meta.url))); }
       if (req.method === 'GET' && files[route]) { const [file, type] = files[route]; res.writeHead(200, { 'Content-Type': type + '; charset=utf-8' }); return res.end(readFileSync(new URL('./public/' + file, import.meta.url))); }
       return send(res, { error: 'Not found.' }, 404);
-    } catch (e) { if (!res.headersSent) send(res, { error: route === '/api/capture' && !e.status ? 'Could not confirm the save. Retry the same capture; check history if the connection was interrupted.' : e.code === 11000 ? 'Username already exists.' : e.status || !e.code ? e.message : 'Database operation failed. Try again.' }, e.status || 400); else res.end(); }
+    } catch (e) { if (!res.headersSent) send(res, { ...(e.scriptStatus?{scriptStatus:e.scriptStatus}:{}),error: route === '/api/capture' && !e.status ? 'Could not confirm the save. Retry the same capture; check history if the connection was interrupted.' : e.code === 11000 ? 'Username already exists.' : e.status || !e.code ? e.message : 'Database operation failed. Try again.' }, e.status || 400); else res.end(); }
   });
 }

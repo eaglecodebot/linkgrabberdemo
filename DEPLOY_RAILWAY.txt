@@ -1,44 +1,49 @@
-LINK GRABBER WEB v5 — DEPLOYMENT
-================================
+LINK GRABBER WEB v6.1 — RAILWAY
+============================
 
-EXISTING SERVICE: ADD ONE VARIABLE
-1. Open GENERATE_SCRIPT_ENCRYPTION_KEY.html from the extracted ZIP in a browser.
-   Click Generate initial setup value once and Copy variable line.
-2. Add it in Railway -> your service -> Variables -> Raw Editor:
-     SCRIPT_ENCRYPTION_KEY=<the generated 64-character random hexadecimal value>
-3. Keep this same private value for future deploys. Back it up outside GitHub.
-   It encrypts/retrieves the permanent scripts stored in MongoDB. If the variable
-   already exists, KEEP it instead of generating a new one.
-4. Keep all existing MONGODB_URI, MONGODB_DB, ADMIN_USERNAME, ADMIN_PASSWORD and
-   PUBLIC_URL values. Keep the same MongoDB database, accounts and snapshots.
-5. Upload the CONTENTS of Link_Grabber_Web to your GitHub repository root.
-6. Let Railway rebuild with cloud/Dockerfile and node cloud/server.mjs.
-   Service root remains /. Root npm start also starts the hosted backend.
-7. Refresh your public Railway panel with Ctrl+F5. Log in, save page settings,
-   then Copy my script once to obtain your permanent v5 script.
-Old v4 scripts are not automatically converted to permanent ones. Users copy v5
-once after upgrade. No database reset, extra PC software or password reset needed.
-A permanent_scripts collection/hash index initializes automatically. Expiry of
-old v4 keys remains in capture_keys; the new permanent records have no TTL.
-The panel/history can run without the new secret, but copying scripts gives a
-clear setup error. A wrong replacement secret cannot decrypt old saved scripts.
+EXISTING v6 INSTALLATION
+Replace the application files and redeploy, keeping the same MongoDB database
+and every variable, especially SCRIPT_ENCRYPTION_KEY. Refresh all open panel tabs
+with Ctrl+F5 to load the new revocation controls. Existing active v6 scripts stay
+valid. On future password/access/revoke events the panel shows the reason and
+requires an explicit Regenerate script action. No automatic replacement on login.
+If an older panel had already issued a replacement before this fix, that valid
+replacement stays active; test the new flow with a fresh revocation after deploy.
+
+EXISTING v5 / v5.0.1 INSTALLATION
+1. Upload the CONTENTS of Link_Grabber_Web to the existing GitHub repository root,
+   replacing matching application files. Include cloud, public, src, railway.json.
+   Do not upload node_modules, real env files, database dumps or generated keys.
+2. Keep every existing environment variable and the same MongoDB database.
+   There are NO new variables in v6. KEEP SCRIPT_ENCRYPTION_KEY unchanged.
+3. Railway root: /. Dockerfile: cloud/Dockerfile.
+   Start command: node cloud/server.mjs (root npm start also works).
+   Railway supplies PORT. The app listens on 0.0.0.0. Health path: /health.
+4. Redeploy, then open the public HTTPS panel and refresh with Ctrl+F5.
+5. Admin only: save the main webpage URL/pattern and service checkboxes under
+   Capture settings · all users. Old personal settings are not used as shared
+   defaults; existing links/accounts/exports stay intact.
+6. Users with an old engine click Regenerate script, then Copy my script. Old
+   v4/v5 code shows an update error. Later URL/service edits require no recopy.
 
 NEW INSTALLATION
-1. Create an Atlas database/user with readWrite permission for the dedicated DB.
-2. Allow your Railway outbound connection through Atlas Network Access.
-3. Upload project contents to a private GitHub repo and deploy on Railway.
-4. Use root /, cloud/Dockerfile, and node cloud/server.mjs.
-5. Generate a public HTTPS domain and configure all six values from
-   RAILWAY_ENV_EXAMPLE.txt with real values, including the new script secret.
-6. PUBLIC_URL must be the exact origin with https://, without a path.
-7. Railway supplies PORT; the server binds to 0.0.0.0. Health: /health.
-8. Redeploy, log in as initial admin and create ordinary panel users.
-The initial admin is created only when absent. Changing ADMIN_PASSWORD in Railway
-later does not change the existing administrator password stored in MongoDB.
-Keep the service funded and disable Serverless/App Sleeping for prompt responses.
-Keep independent MongoDB backups and monitor storage.
-
-USERS
-Public panel -> log in -> main-page settings -> Copy my script -> paste/run in
-source-page Console -> check Saving to: username and wait for the actual result.
-No Windows program, extension, PowerShell, BAT, local panel or PC Node install.
+1. Create a dedicated MongoDB database/user with readWrite permission. Allow
+   Railway's outbound connection in Atlas Network Access.
+2. Upload the project contents to your GitHub repository and deploy on Railway
+   using the settings above. Generate a public HTTPS domain.
+3. Add the six variables from RAILWAY_ENV_EXAMPLE.txt with your actual values:
+   MONGODB_URI, MONGODB_DB, ADMIN_USERNAME, ADMIN_PASSWORD, PUBLIC_URL,
+   SCRIPT_ENCRYPTION_KEY.
+4. PUBLIC_URL must include https:// and contain only your public origin:
+   https://YOUR_SERVICE.up.railway.app (no admin path).
+5. For initial setup only, open GENERATE_SCRIPT_ENCRYPTION_KEY.html locally and
+   generate/copy one random 64-hex value to SCRIPT_ENCRYPTION_KEY. Keep the exact
+   same value on future deploys; store a private backup outside GitHub.
+   The offline generator contains no prefilled secret and sends no requests.
+6. Redeploy, log in as initial admin, configure capture settings and create users.
+   An existing admin's password is not reset by changing Railway ADMIN_PASSWORD.
+7. Each user clicks Generate script, copies it and runs it in the source Console.
+The panel/history still load without a valid script secret, but script copying
+shows a setup error. A different secret cannot decrypt previously saved scripts.
+Keep Railway available (disable service sleeping for prompt responses), monitor
+storage and keep independent database backups. No Windows setup is needed.

@@ -1,8 +1,8 @@
 // Contract-test storage. Production always uses Repository + MongoDB.
 export class MemoryRepository {
   constructor() { this.users = new Map(); this.sessions = new Map(); this.links = new Map(); this.exports = new Map(); this.settings = new Map(); this.captureKeys = new Map(); this.permanentScripts=new Map(); }
-  async userByName(name) { return [...this.users.values()].find(u => u.username === name); }
-  async userById(id) { return this.users.get(id); }
+  async userByName(name) { return structuredClone([...this.users.values()].find(u => u.username === name)); }
+  async userById(id) { return structuredClone(this.users.get(id)); }
   async addUser(u) { if (await this.userByName(u.username)) { const e = new Error('duplicate'); e.code = 11000; throw e; } this.users.set(u._id, { ...u }); }
   async allUsers() { return [...this.users.values()]; }
   async updateUser(id, fields) { const u = this.users.get(id); Object.assign(u, fields); u.authVersion++; }
@@ -10,10 +10,14 @@ export class MemoryRepository {
   async session(hash) { const s = this.sessions.get(hash); return s && s.expiresAt > new Date() ? s : null; }
   async revokeSession(hash) { this.sessions.delete(hash); }
   async addCaptureKey(key) { this.captureKeys.set(key._id,key); }
-  async captureKey(hash) { const script=[...this.permanentScripts.values()].find(r=>r.keyHash===hash);return script?{ownerId:script._id,authVersion:script.authVersion,permanent:true}:this.captureKeys.get(hash); }
+  async captureKey(hash) { const script=[...this.permanentScripts.values()].find(r=>r.keyHash===hash);return script?{ownerId:script._id,authVersion:script.authVersion,scriptVersion:Number(script.scriptVersion)||0,permanent:true}:this.captureKeys.get(hash); }
   async permanentScript(ownerId){return this.permanentScripts.get(ownerId);}
+  async upgradePermanentScript(previous,next){const current=this.permanentScripts.get(previous._id);if(current?.revision===previous.revision&&current.authVersion===previous.authVersion)this.permanentScripts.set(next._id,structuredClone(next));return this.permanentScripts.get(previous._id);}
+  async globalCaptureSettings(){return this.settings.get('global:capture')?{value:this.settings.get('global:capture')}:null;}
+  async saveGlobalCaptureSettings(value){this.settings.set('global:capture',structuredClone(value));}
   async ensurePermanentScript(candidate){const current=this.permanentScripts.get(candidate._id);if(!current||current.authVersion<candidate.authVersion)this.permanentScripts.set(candidate._id,structuredClone(candidate));return this.permanentScripts.get(candidate._id);}
-  async revokeCaptureKeys(ownerId) { this.permanentScripts.delete(ownerId);for(const [id,key] of this.captureKeys)if(key.ownerId===ownerId)this.captureKeys.delete(id); }
+  async installPermanentScript(previous,candidate){const current=this.permanentScripts.get(candidate._id);if(previous?current?.revision===previous.revision:!current)this.permanentScripts.set(candidate._id,structuredClone(candidate));return this.permanentScripts.get(candidate._id);}
+  async revokeCaptureKeys(ownerId,reason) { const u=this.users.get(ownerId);u.scriptVersion=(Number(u.scriptVersion)||0)+1;u.scriptRevocation=structuredClone(reason);for(const [id,key] of this.captureKeys)if(key.ownerId===ownerId)this.captureKeys.delete(id); }
   async captureWebLinks(ownerId,rows,batchId) {
     for(const row of rows) {
       const old=[...this.links.values()].find(r=>r.ownerId===ownerId&&r.url===row.url);

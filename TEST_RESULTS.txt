@@ -1,75 +1,99 @@
-VERIFICATION — LINK GRABBER WEB v5, 25 OCTOBER 2026 (IST)
+VERIFICATION — LINK GRABBER WEB v6.1.0 — 25 OCTOBER 2026
+======================================================
 
-Automated Node API/logic tests: 22 passed, 0 failed.
-- Copying the same user's script repeatedly returns exactly the same stored code.
-- Simultaneous copy requests retain one permanent record per owner; a stale
-  request cannot downgrade a newer password/auth version's stored record.
-- The encrypted script is recoverable with its deployment key and bound to user,
-  auth version and revision. A wrong/missing key never silently replaces it.
-- Settings edits (URL, minimum and label), logout and a fresh HTTP-server instance
-  preserve the script. Capture uses the latest settings and confirmed owner.
-- Permanent records have no expiry; an old creation date does not stop capture.
-- Self/admin revocation, password resets and disabling stop old keys. A replacement
-  is distinct; the old copy stays invalid. Ordinary users cannot revoke others.
-- Legacy v4 timed keys still expire and retain their original settings restrictions.
-- Scoped keys cannot read history/admin APIs, choose another owner or import into
-  another user's panel. Histories and export snapshots remain private.
-- Captures decode correctly; new/duplicate/mixed/missing/partial outcomes pass.
-- Save acknowledgement follows storage. Retried packets preserve original insert
-  counts without duplicate rows and retain original metadata/legacy row IDs.
-- Short passwords, empty/oversized rejection, session revocation, export retention,
-  signed query preservation and Indian filenames continue to pass.
-- Mongo repository behavior uses a contract double, including compare-and-replace
-  script slots, unique owner+URL identities and capture batch retry markers.
+Automated Node API/logic tests: 36 passed, 0 failed.
+- Admin-only shared main URL/service settings. Direct user POSTs return 403.
+- A global settings document does not overwrite old personal settings.
+- Captures require each selected service, not a numeric count. Four YouTube URLs
+  cannot substitute for Lovable/Notion/NordVPN. Incomplete batches save nothing.
+- Disabled service URLs are filtered by the server. No services pauses capture.
+  Legacy authenticated sync cannot save disabled-service URLs either.
+- Headspace redemption/checkout recognition, selected-service capture and TXT
+  export; switching it off preserves its history.
+- Signed destination query encodings are preserved while decoding wrappers.
+- Script reads/status/copy do not generate replacements. Password reset/change,
+  self/admin revoke and account disable/restore persist distinct reasons. Read
+  endpoints return no script until explicit regeneration. Old keys stay invalid.
+- First-use accounts need Generate script. Old engines require explicit
+  regeneration with a new key. Active v6 scripts stay unchanged on this update.
+- Delayed copy/regenerate requests recheck account and revocation state before
+  returning code. Revocation during generation cannot reactivate a stale key.
+- Explicit generation converges on one slot; stale record writes cannot replace
+  newer keys. Manual revocation atomically advances capture version and saves the
+  reason without ending the current login session.
+- Encryption recovery/context binding, wrong/missing key behavior, script slot
+  concurrency and compare-and-replace guards. Upgrade cannot resurrect a revoked
+  script or overwrite a replacement/newer-password version.
+- User isolation, limited capture-key permissions, wrong-page rejection, manual
+  import ownership, password changes/resets, disable and self/admin revocation.
+- New/duplicate/mixed/missing outcomes; idempotent batch retries retain counts.
+  Storage acknowledgement precedes success. Exported/history rows remain intact.
+- Short passwords, invalid passwords, sessions, export retention and IST filenames.
 
 Actual Chromium browser tests: PASSED.
-- Hosted panel created/copied the permanent script; reload returned identical code.
-- Source-page direct saving took about 192 ms in the local demo test environment.
-- Source-page duplicate results did not add links. A fourth link delayed two
-  seconds was accepted; a missing-link error appeared after about 3.01 seconds.
-- Strict source CSP blocked fetch/frames/scripts/styles. A real click opened the
-  save window, exchanged current settings and returned confirmed results.
-- COOP-isolated save windows displayed their own confirmed result and removed
-  their URL fragment; the source did not claim an unreceived success.
-- Native Console copy() and authenticated panel import covered the manual fallback.
-- Changing the URL/minimum/label in the panel required no script change. The same
-  old code accepted the new page/minimum through direct and popup paths, rejected
-  the old page, and used the new label in saved history.
-- While Alice's panel stayed signed in, Bob's valid script prominently displayed
-  Saving to: bob and saved only to Bob's history. Alice's records did not change.
-- Admin UI Revoke script stopped Alice's old copy. Alice copied a distinct
-  replacement, used it successfully, then self-revoked it. Old copies stayed invalid.
-- Dark service sections, real service TXT download, admin history switching and
-  390px layout passed. No JavaScript page errors. Screenshots were inspected.
-- The offline setup HTML generated one valid 64-hex variable line and did not
-  overwrite it on a repeated click. The generated test secret was not logged.
+- The regular user saw a read-only setup summary; an attempted settings API edit
+  returned 403. No numeric minimum input exists.
+- Held the /api/me response during refresh and observed the DOM: the loading view
+  remained visible, the login form stayed hidden and no login flash occurred.
+  Releasing the request restored the workspace and exact stored script. An
+  expired session showed the login form only after rejection.
+- Direct source save: 179 ms in this local synthetic environment. Empty-page
+  error: 3019 ms. A fourth service link added after two seconds was accepted.
+- Missing-service messages named the absent providers. Duplicates added no rows.
+- Strict CSP source: actual click opened a save window, exchanged current rules
+  and returned confirmed success. COOP-isolated windows confirmed their own save
+  without falsely reporting success on the source; fragments were removed.
+- Native Console copy() plus authenticated import passed the manual fallback.
+- Five counted top tabs each showed exactly one panel. Service TXT actually
+  downloaded and contained only that service's URLs with an IST filename.
+- Admin edited the main URL and checkboxes through the actual form. The exact
+  same user script accepted the new configuration, rejected the old URL and
+  worked through both direct and popup paths.
+- Reused Bob's script after switching to Headspace; only Headspace was added,
+  despite all five services being present. Capture-paused message passed.
+- New users saw Generate script, with no permanent record until clicked.
+- An admin revoked a script while its owner's panel stayed open. Polling hid and
+  cleared code and copy buttons, showed the reason and Regenerate script. Reload
+  preserved the reason without a new key. Explicit regeneration created a valid
+  replacement; old code remained invalid. Self-revoke behaved the same way.
+- An admin reset Bob's password through the actual form. Bob's open panel cleared
+  its code, logged out and showed the reason. New login/refresh kept code hidden,
+  the old stored record unchanged, and a password-reset reason until Regenerate
+  was clicked. The explicit replacement then saved successfully.
+- Self password change and disable/re-enable showed their own saved reasons and
+  empty code fields. No automatic replacement occurred.
+- Bob's script saved to Bob while Alice's panel stayed signed in. Source messages
+  identified the correct owner. Admin/self revocation and replacement passed.
+- Dark admin/user views, admin history switching, date/time-only row metadata,
+  one-line long URLs with working horizontal scroll, and no horizontal document
+  overflow at 390px passed. No JavaScript page errors. Screenshots inspected.
 
-Build checks:
-- Node 24 production dependency install succeeds using the cloud lockfile.
-- Required modules load and the Dockerfile includes shared/browser/backend code.
-- No old Windows receiver, BAT/PowerShell launcher, SQLite DB, node_modules or
-  real encryption secret is included in the download.
-- Existing history/accounts/exports/settings are retained in the same database;
-  a permanent_scripts collection/hash index initializes automatically.
+Build/package checks:
+- Node syntax checks pass for source, browser and backend modules.
+- Root/cloud versions and lockfiles agree at 6.1.0. Dependencies and Docker
+  configuration are unchanged from v6; no new dependency is required.
+- No new environment variable or dependency is needed for this update.
+- Docker config includes shared/browser/backend files; starts cloud/server.mjs.
+- ZIP excludes node_modules, local data, screenshots, PC launchers and real secrets.
 
 Limits:
-- Tests use in-memory cloud storage and Mongo contract doubles, not a live Atlas
-  instance/MongoDB engine. No deployment to your actual Railway/GitHub was made.
-- The actual LinkedIn DOM/policies were not live-tested. Ordinary main-document
-  anchors are supported; browser isolation can require confirmation in the save
-  window or manual handoff. An isolated window saves the opening snapshot; if
-  links load afterward, reopen from the source page to send a fresh snapshot.
-- Local timing is not a deadline for external networks/databases. Internet and
-  backend availability are required; no offline queue is provided.
-- An existing valid script for another user still targets its owner. The username
-  display identifies that owner; it cannot identify the physical operator.
-- Keep SCRIPT_ENCRYPTION_KEY fixed/backed up to recover the exact stored scripts.
-  A future panel-domain or capture-code change can require explicit replacement;
-  normal capture settings do not.
+- Storage tests use MemoryRepository and a MongoDB query/update contract double,
+  not an actual Atlas instance or native MongoDB engine. No deployment to the
+  user's Railway/GitHub service was performed.
+- The actual LinkedIn DOM and browser policies were not live-tested. Fake source
+  anchors/reward codes were used; no reward destination was visited or redeemed.
+- Headspace's real LinkedIn perk sample was not provided. Tests cover recognized
+  official redemption/checkout URL shapes; a different format may need a rule.
+- Main-document a[href] only; no iframe/shadow-root/click-only adapter.
+- Local timing does not guarantee remote Railway/MongoDB latency. Confirmation
+  needs internet/backend availability; there is no offline queue. Isolation or
+  blocking can require a save window/manual handoff and additional time.
+- Scripts remain private reusable code, not automatic post-refresh installations.
 
 Repeat:
   npm ci
   npm test
   npm run test:browser
-Use installed Chrome/Edge or CHROME_PATH for browser tests. Fake reward codes are
-used; no reward destination is visited/redeemed and no GoLogin API is called.
+Use installed Chrome/Edge or set CHROME_PATH for browser tests. This run used
+Chromium with the container sandbox disabled for testing only; no such browser
+setting is required of users.

@@ -21,16 +21,29 @@ export function decodeLink(input) {
   return null;
 }
 
-export function perkLink(input) {
-  const decoded = decodeLink(input);
-  if (!decoded) return null;
-  const u = new URL(decoded.url);
-  const types = { 'youtube.com': ['YouTube', 'acc'], 'lovable.dev': ['Lovable', 'reward_code'],
-    'notion.com': ['Notion', 'code'], 'nordvpn.com': ['NordVPN', 'code'] };
-  const type = types[decoded.host];
-  if (!type || !u.searchParams.get(type[1])) return null;
-  return { ...decoded, service: type[0] };
+export const SERVICE_NAMES=['YouTube','Lovable','Notion','NordVPN','Headspace'];
+export const DEFAULT_SERVICES=SERVICE_NAMES.slice(0,4);
+export const SERVICE_RULES=[
+  {service:'YouTube',hosts:['youtube.com'],queryAny:['acc']},
+  {service:'Lovable',hosts:['lovable.dev'],queryAny:['reward_code']},
+  {service:'Notion',hosts:['notion.com'],queryAny:['code']},
+  {service:'NordVPN',hosts:['nordvpn.com'],queryAny:['code']},
+  {service:'Headspace',hosts:['headspace.com','checkout.headspace.com','work.headspace.com'],queryAny:['code','voucherCode','voucher_code','promoCode','promo_code','couponCode','coupon'],pathPrefixes:['/code','/redeem','/checkout'],pathContains:['linkedin']}
+];
+// Embedded in the permanent script; rules themselves come from the server.
+export function matchRewardLink(input,rules) {
+  const decoded=decodeLink(input);if(!decoded)return null;
+  const u=new URL(decoded.url),path=u.pathname.toLowerCase();
+  for(const rule of rules){
+    if(!rule.hosts.includes(decoded.host))continue;
+    const query=(rule.queryAny||[]).some(key=>!!u.searchParams.get(key));
+    const prefix=(rule.pathPrefixes||[]).some(p=>path===p||path.startsWith(p+'/'));
+    const contains=(rule.pathContains||[]).some(p=>path.includes(p));
+    if(query||prefix||contains)return {...decoded,service:rule.service};
+  }
+  return null;
 }
+export function perkLink(input){return matchRewardLink(input,SERVICE_RULES);}
 
 export function decodeResult(result, mode = 'perks') {
   if (mode === 'raw') return result;
@@ -51,6 +64,6 @@ export function indianFilename(title = 'Decoded_Links', date = new Date()) {
 // An absent service means the combined export; reject unsupported filters.
 export function exportTitle(service) {
   if (!service) return 'Decoded_Links';
-  if (!['YouTube', 'Lovable', 'Notion', 'NordVPN'].includes(service)) throw new Error('Select a supported service.');
+  if (!SERVICE_NAMES.includes(service)) throw new Error('Select a supported service.');
   return service;
 }

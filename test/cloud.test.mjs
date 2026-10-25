@@ -11,6 +11,7 @@ test('cloud HTTP permissions, per-user isolation, admin history, export retentio
   try {
     assert.equal((await req('links')).status,401);
     const admin = await login('admin','admin-long-password');
+    await req('settings',admin.token,{pagePattern:'https://source.test/*'});
     const a = (await req('admin/users',admin.token,{username:'alice',password:'alice-long-password'})).body.user;
     const b = (await req('admin/users',admin.token,{username:'bob',password:'bob-long-password'})).body.user;
     const alice = await login('alice','alice-long-password'), bob = await login('bob','bob-long-password');

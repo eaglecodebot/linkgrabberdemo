@@ -23,8 +23,11 @@ export class Repository {
   session(hash) { return this.sessions.findOne({ _id: hash, expiresAt: { $gt: new Date() } }); }
   revokeSession(hash) { return this.sessions.deleteOne({ _id: hash }); }
   addCaptureKey(key) { return this.captureKeys.insertOne(key); }
-  async captureKey(hash) { const record=await this.permanentScripts.findOne({keyHash:hash});return record?{ownerId:record._id,authVersion:record.authVersion,permanent:true}:this.captureKeys.findOne({_id:hash}); }
+  async captureKey(hash) { const record=await this.permanentScripts.findOne({keyHash:hash});return record?{ownerId:record._id,authVersion:record.authVersion,scriptVersion:Number(record.scriptVersion)||0,permanent:true}:this.captureKeys.findOne({_id:hash}); }
   permanentScript(ownerId) { return this.permanentScripts.findOne({_id:ownerId}); }
+  async upgradePermanentScript(previous,next){await this.permanentScripts.replaceOne({_id:previous._id,revision:previous.revision,authVersion:previous.authVersion},next);return this.permanentScript(previous._id);}
+  globalCaptureSettings(){return this.settings.findOne({_id:'global:capture'});}
+  saveGlobalCaptureSettings(value){return this.settings.updateOne({_id:'global:capture'},{$set:{value}},{upsert:true});}
   async ensurePermanentScript(candidate) {
     try { await this.permanentScripts.updateOne({_id:candidate._id},{$setOnInsert:candidate},{upsert:true}); }
     catch(e) { if(e.code!==11000)throw e; }
@@ -37,7 +40,15 @@ export class Repository {
     }
     throw new Error('The script changed during copying. Try again.');
   }
-  async revokeCaptureKeys(ownerId) { await this.permanentScripts.deleteOne({_id:ownerId});return this.captureKeys.deleteMany({ ownerId }); }
+  async installPermanentScript(previous,candidate) {
+    if(previous)await this.permanentScripts.replaceOne({_id:previous._id,revision:previous.revision},candidate);
+    else {try{await this.permanentScripts.insertOne(candidate);}catch(e){if(e.code!==11000)throw e;}}
+    return this.permanentScript(candidate._id);
+  }
+  async revokeCaptureKeys(ownerId,reason) {
+    await this.users.updateOne({_id:ownerId},{$set:{scriptRevocation:reason},$inc:{scriptVersion:1}});
+    return this.captureKeys.deleteMany({ownerId});
+  }
   async captureWebLinks(ownerId, rows, batchId) {
     for (const row of rows) {
       const insert = { ...row, _id: hashToken(ownerId + '\0' + row.url), ownerId, capture_batch: batchId };

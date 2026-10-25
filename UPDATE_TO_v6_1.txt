@@ -1,0 +1,25 @@
+v6.1 — EXPLICIT SCRIPT REGENERATION
+
+1. Replace the application files in GitHub and redeploy Railway.
+2. Keep the same database and all existing environment variables. In particular,
+   KEEP SCRIPT_ENCRYPTION_KEY unchanged. No new env variable or DB reset.
+3. Refresh all open panel tabs with Ctrl+F5. Active v6 scripts remain valid.
+4. After a password change/reset, the user logs in again, sees the saved reason
+   instead of code, and clicks Regenerate script, then Copy my script.
+
+Other reasons covered: self revoke, admin revoke, account disabled/re-enabled,
+old capture engine and panel-address replacement. A disabled user cannot generate
+until enabled again. New users see Generate script on first use.
+
+Read/copy/status calls, login, panel refresh and history polling never generate
+a replacement. Causes remain saved across logins, refreshes and server restarts.
+An open panel checks every two seconds and on focus; invalid sessions clear code
+and show the login screen with the reason. Inactive/background browser tabs or
+network loss can delay the on-screen notice. A failed state check hides code.
+Old keys are rejected by the server regardless of what an old tab displays.
+
+The previous version already invalidated old keys on password change, but then
+silently issued a new one when the user opened the panel. This update removes
+that behavior. Previously issued valid replacements remain active. Causes from
+before this update were not recorded; old mismatches use a general explanation.
+No need for every user to recopy a working v6 script after this deployment.

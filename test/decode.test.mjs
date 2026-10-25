@@ -24,3 +24,8 @@ test('batch removes tracking-wrapper duplicates and has no four-link cap', () =>
 test('TXT filenames use the Indian calendar date across a UTC midnight boundary', () => {
   assert.equal(indianFilename('Decoded_Links', new Date('2026-10-24T20:00:00Z')), 'Decoded_Links_2026-10-25.txt');
 });
+
+test('Headspace official redemption/checkout patterns decode without touching destinations',()=>{
+ for(const url of ['https://www.headspace.com/code','https://checkout.headspace.com/checkout?voucherCode=EXAMPLE%2Bkeep','https://work.headspace.com/linkedin/member'])assert.equal(perkLink(wrap(url)).service,'Headspace');
+ for(const url of ['https://headspace.com/','https://headspace.com.evil.test/code','https://help.headspace.com/code','https://headspace.com/codex'])assert.equal(perkLink(url),null);
+});
