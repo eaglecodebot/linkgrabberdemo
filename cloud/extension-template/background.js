@@ -1,19 +1,35 @@
-import {grabSetup,grabStatus,startGrab,grabIsRunning} from './grabber.js';
+import {grabSetup,grabStatus,startGrab,grabIsRunning,workflowSetup} from './grabber.js';
 import {ACTIVE, originOf, hostPattern, sameStartingPage, validateConfig, workflowConfig, mergeSettings, validateSettings, newRun, logRun, advance, contextPlan, redactedDiagnostics} from './shared.js';
 
 // Serialize state changes. Long DOM waits live in the content script, never here.
 let queue = Promise.resolve();
 function serial(fn) { const next = queue.then(fn); queue = next.catch(() => {}); return next; }
+let workflowCache,workflowCacheUntil=0,workflowRead;
 let cachedRun, cachedConfig, lastBadge = '', alarmActive = false;
 const readRun = async () => {
   if (cachedRun === undefined) cachedRun = (await chrome.storage.local.get('run')).run || null;
   return cachedRun;
 };
-async function config() {
-  if (cachedConfig) return cachedConfig;
-  const defaults = await (await fetch(chrome.runtime.getURL('workflow.json'))).json();
-  const {settings = {}} = await chrome.storage.local.get('settings');
-  cachedConfig = mergeSettings(defaults, settings); return cachedConfig;
+async function config(requireCurrent=false) {
+  if(!cachedConfig){
+    const defaults=await (await fetch(chrome.runtime.getURL('workflow.json'))).json();
+    const {settings={}}=await chrome.storage.local.get('settings');
+    cachedConfig=mergeSettings(defaults,settings);
+    cachedConfig.managedWorkflowUrls=!!defaults.managedWorkflowUrls;
+  }
+  if(!cachedConfig.managedWorkflowUrls)return cachedConfig;
+  try{
+    let remote=workflowCache;
+    if(requireCurrent||!remote||workflowCacheUntil<Date.now()){
+      if(requireCurrent)remote=await workflowSetup();
+      else {workflowRead ||= workflowSetup().finally(()=>{workflowRead=null;});remote=await workflowRead;}
+      workflowCache=remote;workflowCacheUntil=Date.now()+5000;
+    }
+    return {...cachedConfig,...remote.workflowUrls,workflowConfigError:''};
+  }catch(e){
+    if(requireCurrent)throw new Error('Cannot load the admin workflow URLs: '+e.message);
+    return {...cachedConfig,workflowConfigError:e.message};
+  }
 }
 async function save(run) {
   cachedRun = run;
@@ -154,8 +170,11 @@ async function handle(msg, sender) {
     case 'DIAGNOSTICS': return {diagnostics: redactedDiagnostics(run, chrome.runtime.getManifest().version)};
     case 'SAVE_SETTINGS': {
       if (ACTIVE.has(run?.status)) throw new Error('Stop the current run before changing settings.');
-      const candidate = {...await config(), ...msg.settings}; validateSettings(candidate);
-      await chrome.storage.local.set({settings: msg.settings}); cachedConfig = null; return {config: await config()};
+      const current=await config();
+      if(current.managedWorkflowUrls){for(const field of ['startUrl','step2StartUrl','step2SecondUrl'])if(Object.hasOwn(msg.settings,field)&&msg.settings[field]!==current[field])throw new Error('These workflow URLs are managed by the web-panel administrator.');}
+      const candidate={...current,...msg.settings};validateSettings(candidate);
+      const stored={...msg.settings};if(current.managedWorkflowUrls)for(const field of ['startUrl','step2StartUrl','step2SecondUrl','managedWorkflowUrls'])delete stored[field];
+      await chrome.storage.local.set({settings: stored}); cachedConfig = null; return {config: await config()};
     }
     case 'RESET_SETTINGS':
       if (ACTIVE.has(run?.status)) throw new Error('Stop the current run first.');
@@ -163,8 +182,8 @@ async function handle(msg, sender) {
     case 'START': {
       if(grabIsRunning())throw new Error('Wait for the link capture to finish before starting a workflow.');
       if (ACTIVE.has(run?.status)) throw new Error('A run already exists. Stop it before starting again.');
-      const cfg = workflowConfig(await config(), msg.workflowNumber ?? 1, run), origins = validateConfig(cfg);
-      if (!await chrome.permissions.contains({origins: origins.map(hostPattern)})) throw new Error('Website access was not granted. Click Trial or Cancel & Refund again and allow access.');
+      const cfg = workflowConfig(await config(true), msg.workflowNumber ?? 1, run), origins = validateConfig(cfg);
+      if (!await chrome.permissions.contains({origins: origins.map(hostPattern)})) throw new Error(cfg.managedWorkflowUrls?'The admin workflow URLs need website access. Click Trial or Cancel & Refund again to allow their current websites.':'Website access was not granted. Click Trial or Cancel & Refund again and allow access.');
       let selected;
       if (Number.isInteger(msg.tabId)) { try { selected = await chrome.tabs.get(msg.tabId); } catch {} }
       selected ||= (await chrome.tabs.query({active: true, currentWindow: true}))[0];

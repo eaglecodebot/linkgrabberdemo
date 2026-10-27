@@ -1,5 +1,48 @@
-LINK GRABBER WEB v6.3.0
+LINK GRABBER WEB v6.4.1
 ======================
+
+WORKFLOW v1.7.4 MERGE / COMBINED EXTENSION v1.9.1
+The supplied Trial/Cancel & Refund update is merged into the integrated template.
+Individual continuation now uses the captured button/dialog regardless of label,
+including Start free trial or unknown wording. It waits for a single ready match
+and never escapes a visible Individual dialog to click a stale outside button.
+Grab Links, personal capture connections and admin-managed URLs are preserved.
+
+Grabber notifications now have full colored backgrounds matching the console
+script: green success, amber partial saves/duplicate warnings, red errors and
+blue information. Both the webpage toast and extension popup use this palette.
+The existing toast expiry/dismiss behavior remains unchanged.
+
+Deploy all files. Users receive the existing once-per-release update notice and
+download their personalized combined extension v1.9.1. Replace the installed files
+and press Reload on the browser extensions page. No environment changes and no
+regeneration of an already active console script are required.
+
+EXTENSION RELEASES AND ADMIN WORKFLOW URLS v6.4.0
+Admin panel > Extension workflow URLs sets startUrl, step2StartUrl and
+step2SecondUrl for every user's personalized extension. Set these after deploying
+this update, then users download extension v1.9.0. Values are included in the ZIP
+and fetched again at each workflow start. Old local values cannot override them.
+Users can view these URLs in extension Settings but cannot edit them there.
+The remaining timing/pincode settings stay local as before. Capture page/service
+settings remain separate. Empty workflow URLs keep that workflow unconfigured;
+clearing an admin URL never restores an older saved local URL.
+
+To publish extension code updates, edit the integrated runtime files under
+cloud/extension-template/, increase version in its manifest.json, and redeploy.
+Runtime file contents automatically identify a release, even if the version was
+not increased. Documentation-only changes do not generate a release. See
+EXTENSION_UPDATES.txt for the full workflow and examples.
+
+Each user gets one automatic panel notification per release. A persistent update
+card provides Update & download extension until the browser receives the ZIP
+and confirms the download. The notice/download state is stored per account in
+MongoDB and survives refresh, logout, redeploy and another PC. It does not change
+passwords, login sessions, capture keys or saved links. Downloading is not proof
+that every installed browser/profile was updated; users still replace the files
+in their installed extension folder and press Reload on chrome://extensions.
+Console scripts remain available and need no regeneration for a code update.
+URL-only admin changes apply to the next workflow start in v1.9+ without a new ZIP.
 
 PERSONAL WORKFLOW EXTENSION v6.3.0
 The console script remains available. Download my extension appears beside Copy
@@ -37,7 +80,8 @@ GRAB LINKS
 - A workflow and a capture cannot run together. Stop the current workflow before
   using Grab Links; wait for capture to finish before starting Trial/Cancel.
 - Trial and Cancel & Refund retain their supplied workflow definitions/settings.
-  Configure their private URLs in extension Settings as before.
+  The administrator configures their three URLs in the web panel; users keep
+  their other workflow preferences in extension Settings.
 
 CONNECTION AND UPDATES
 The extension uses the same permanent capture key as that user's console script.

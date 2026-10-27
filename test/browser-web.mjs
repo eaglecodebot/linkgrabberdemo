@@ -96,6 +96,14 @@ try{
  await panel.setViewport({width:390,height:844});assert(await panel.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  const adminPanel=await browser.newPage();await adminPanel.goto(origin);await adminPanel.type('#username','admin');await adminPanel.type('#password','admin-long-password');await adminPanel.click('#login button');await adminPanel.waitForSelector('#history-user option');await adminPanel.select('#history-user',alice.id);await adminPanel.select('#status','all');await adminPanel.waitForFunction(()=>document.querySelector('#count').textContent.startsWith('20 '));assert.equal(await adminPanel.evaluate(()=>getComputedStyle(document.documentElement).colorScheme),'dark');
  const bob=(await api('admin/users',admin.token)).users.find(u=>u.username==='bob');await adminPanel.select('#history-user',bob.id);await adminPanel.waitForFunction(()=>document.querySelector('#count').textContent.startsWith('0 '));
+ // Admin-only workflow URL form persists independently of capture policy.
+ assert.equal(await panel.$eval('#admin',n=>n.hidden),true);
+ const adminWorkflowUrls={startUrl:sourceOrigin+'/trial',step2StartUrl:sourceOrigin+'/subscriptions',step2SecondUrl:sourceOrigin+'/refund'};
+ for(const [key,id] of [['startUrl','workflow-start-url'],['step2StartUrl','workflow-step2-start-url'],['step2SecondUrl','workflow-step2-second-url']])await adminPanel.$eval('#'+id,(n,value)=>{n.value=value;},adminWorkflowUrls[key]);
+ await adminPanel.click('#workflow-settings-form button');await wait(async()=>JSON.stringify((await api('workflow-settings',admin.token)).workflowUrls)===JSON.stringify(adminWorkflowUrls),'admin workflow URL save');
+ await adminPanel.reload();await adminPanel.waitForFunction(()=>document.querySelector('#workflow-start-url').value.endsWith('/trial'));
+ for(const [key,id] of [['startUrl','workflow-start-url'],['step2StartUrl','workflow-step2-start-url'],['step2SecondUrl','workflow-step2-second-url']])assert.equal(await adminPanel.$eval('#'+id,n=>n.value),adminWorkflowUrls[key]);
+ report.adminWorkflowUrlForm='PASS';
  // Empty disabled tabs follow saved settings; switching off the selected tab
  // selects a visible service and keyboard navigation skips the hidden one.
  assert.equal(await adminPanel.$eval('#tab-headspace',n=>n.hidden),true);

@@ -1,10 +1,10 @@
-PRIVATE WORKFLOW RUNNER v1.8.0 — PERSONAL LINK GRABBER
+PRIVATE WORKFLOW RUNNER v1.9.1 — PERSONAL LINK GRABBER
 Buttons: Trial | Grab Links | Cancel & Refund.
 See CAPTURE_SETUP.txt in the personalized download for capture installation.
 The source template is personalized by the Link Grabber web panel when each user
 clicks Download my extension. Do not share a personalized ZIP between accounts.
 Main capture URL/services are controlled by the web-panel admin; trial/cancel
-workflow URL settings below remain separate. Grab Links does not perform payment,
+workflow URLs are managed in the web admin panel and refresh before each run. Grab Links does not perform payment,
 trial, cancellation or refund clicks; use the corresponding workflow button.
 
 The following instructions describe the existing Trial/Cancel & Refund workflows:
@@ -80,7 +80,8 @@ FIRST INSTALLATION
 2. Open chrome://extensions (Chrome) or edge://extensions (Edge).
 3. Enable Developer mode. Choose Load unpacked and select the folder named
    private-workflow-extension containing manifest.json.
-4. Open Settings and enter your private workflow URLs. You can configure
+4. Ask the web administrator to set the three workflow URLs. Open Settings for
+   your other preferences. In personalized v1.9+ builds, workflow URLs are read-only. You can configure
    Step 1 alone, Step 2 alone, or both. Step 2 requires both of its URLs.
 5. Log in to the website in this browser profile. Choose the workflow's
    button and grant the requested website access if necessary.
@@ -210,7 +211,7 @@ Cancel & Refund: Open URL 1 and begin its cancellation/refund/support workflow.
 Pause / Resume: Stop new actions, then continue from the saved action.
 Stop: End the current run. Click Trial or Cancel & Refund for a fresh run.
 Retry this action: Available after an error; inspect the site first.
-Settings: Configure workflow URLs, timing and pincode settings.
+Settings: View admin-managed URLs; configure local timing and pincode settings.
 Download diagnostics: Export workflow_diagnostics.json with workflow number,
   action, readiness and frame details. URLs and entered values are redacted.
 

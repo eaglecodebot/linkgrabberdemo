@@ -28,10 +28,11 @@ async function render() {
   $('retry').hidden = run?.status !== 'error' || ((step?.noRepeat || (step?.final && step.action === 'click')) && run.phase !== 'waiting');
   $('log').replaceChildren(...[...(run?.log || [])].reverse().slice(0, 12).map(entry => { const li = document.createElement('li'); const message = entry.message === 'Stopped. Press Start for a new run.' ? stoppedMessage : entry.message === 'Workflow updated. Press Start to use the new captured steps.' ? 'Workflow updated. Click Trial or Cancel & Refund to begin a new run.' : entry.message; li.textContent = `${new Date(entry.at).toLocaleTimeString()} · ${message}`; return li; }));
 }
-function action(id, fn) { $(id).addEventListener('click', async () => { showError(''); try { await fn(); await render(); } catch (e) { showError(e.message); } }); }
+function action(id, fn) { $(id).addEventListener('click', async () => { showError(''); try { await fn(); await render(); } catch (e) { try{await render();}catch{}showError(e.message); } }); }
 async function startWorkflow(workflowNumber) {
   const cfg = workflowConfig(snapshot.config, workflowNumber, snapshot.run);
-  if (!cfg.startUrl || (workflowNumber === 2 && !cfg.secondUrl)) throw new Error(`Set ${workflowNumber === 1 ? 'the Trial URL' : 'both Cancel & Refund URLs'} in Settings or workflow.json first.`);
+  if(snapshot.config.managedWorkflowUrls&&snapshot.config.workflowConfigError)throw new Error('Cannot load the admin workflow URLs: '+snapshot.config.workflowConfigError);
+  if (!cfg.startUrl || (workflowNumber === 2 && !cfg.secondUrl)) throw new Error(snapshot.config.managedWorkflowUrls?'Ask the administrator to set the required workflow URLs in the web panel.':`Set ${workflowNumber === 1 ? 'the Trial URL' : 'both Cancel & Refund URLs'} in Settings or workflow.json first.`);
   const origins = validateConfig(cfg);
   if (!await chrome.permissions.request({origins: origins.map(hostPattern)})) throw new Error('Allow website access to run this workflow.');
   const [tab] = await chrome.tabs.query({active: true, currentWindow: true});

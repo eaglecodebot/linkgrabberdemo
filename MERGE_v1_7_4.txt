@@ -1,0 +1,18 @@
+LINK GRABBER WEB v6.4.1 / COMBINED EXTENSION v1.9.1
+28 October 2026 (IST)
+
+Merged the supplied Private Workflow Extension v1.7.4 into the existing integrated
+extension. engine.js and workflow.json match the supplied update exactly.
+The updated Individual-confirm browser regression is included too.
+
+Kept Grab Links, personal ZIP downloads, permanent capture keys, admin-managed
+workflow URLs, release notices, export/history and account isolation intact.
+Individual continuation is text-independent inside the captured dialog, respects
+readiness/overlays, waits on ambiguity and avoids unrelated outside/final buttons.
+
+Full notification backgrounds match the console script in the webpage toast and
+extension popup: green success, amber warning, red error, blue information.
+
+Deploy all files to Railway, then hard refresh the panel. Users download their
+personalized extension v1.9.1, overwrite the installed folder and press Reload.
+No new environment variables or regeneration of active console scripts required.

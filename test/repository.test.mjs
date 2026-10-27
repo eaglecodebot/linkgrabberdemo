@@ -5,7 +5,7 @@ import { Repository } from '../cloud/repository.mjs';
 // Small Mongo update contract double. Native Mongo/Atlas is not available here.
 class Collection {
   constructor(rows = []) { this.rows = rows; }
-  matches(row, filter) { return Object.entries(filter).every(([k,v]) => v&&typeof v==='object'&&Array.isArray(v.$in)?v.$in.includes(row[k]):row[k] === v); }
+  matches(row, filter) { return Object.entries(filter).every(([k,v]) => v&&typeof v==='object'&&Array.isArray(v.$in)?v.$in.includes(row[k]):v&&typeof v==='object'&&Object.hasOwn(v,'$ne')?!(Array.isArray(row[k])?row[k].includes(v.$ne):row[k]===v.$ne):row[k] === v); }
   async findOne(filter) { return this.rows.find(row => this.matches(row, filter)); }
   async countDocuments(filter) { return this.rows.filter(row=>this.matches(row,filter)).length; }
   async insertOne(row){if(this.rows.some(r=>r._id===row._id)){const e=new Error('duplicate');e.code=11000;throw e;}this.rows.push(structuredClone(row));}
@@ -18,7 +18,11 @@ class Collection {
       if (this.rows.some(r => r._id === row._id)) { const e = new Error('duplicate _id'); e.code = 11000; throw e; }
       this.rows.push(row);
     }
-    if (row) {Object.assign(row, update.$set || {});for(const [key,n] of Object.entries(update.$inc||{}))row[key]=(Number(row[key])||0)+n;}
+    if(!row)return {matchedCount:0,modifiedCount:0};
+    const before=JSON.stringify(row);
+    Object.assign(row,update.$set||{});for(const [key,n] of Object.entries(update.$inc||{}))row[key]=(Number(row[key])||0)+n;
+    for(const [key,value] of Object.entries(update.$addToSet||{})){row[key]||=[];if(!row[key].includes(value))row[key].push(value);}
+    return {matchedCount:1,modifiedCount:JSON.stringify(row)===before?0:1};
   }
 }
 const item = (profile_id = 'first', exported = false) => ({ _id: 'old-client-id-' + profile_id, profile_id, url: 'https://youtube.com/premium?acc=TEST', service: 'YouTube', first_seen: '2026-10-25T00:00:00.000Z', exported });
@@ -93,4 +97,15 @@ test('manual revocation stores its cause and advances capture version without re
  const repo=new Repository({collection:name=>name==='users'?users:name==='permanent_scripts'?scripts:name==='capture_keys'?keys:new Collection()}),reason={code:'admin-revoked',reason:'Administrator revoked your script.',at:'2026-10-25T12:00:00Z'};
  await repo.revokeCaptureKeys('alice',reason);
  assert.equal(users.rows[0].authVersion,3);assert.equal(users.rows[0].scriptVersion,1);assert.deepEqual(users.rows[0].scriptRevocation,reason);assert.equal((await repo.captureKey('old')).scriptVersion,0);assert.deepEqual(keys.rows.map(r=>r._id),['other']);
+});
+
+
+test('Mongo extension notices use a conditional add-to-set and never modify account credentials',async()=>{
+ const state=new Collection(),users=new Collection([{_id:'alice',authVersion:7}]);
+ const repo=new Repository({collection:name=>name==='extension_updates'?state:name==='users'?users:new Collection()});
+ const results=await Promise.all([repo.claimExtensionNotice('alice','release-one'),repo.claimExtensionNotice('alice','release-one')]);assert.equal(results.filter(Boolean).length,1);
+ assert.equal(await repo.claimExtensionNotice('alice','release-two'),true);assert.equal(await repo.claimExtensionNotice('alice','release-one'),false);
+ await repo.markExtensionDownloaded('alice','release-one');await repo.markExtensionDownloaded('alice','release-one');
+ assert.deepEqual((await repo.extensionState('alice')).downloadedReleases,['release-one']);assert.equal((await repo.userById('alice')).authVersion,7);
+ assert.equal(await repo.extensionState('bob'),undefined);
 });

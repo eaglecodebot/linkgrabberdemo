@@ -3,6 +3,8 @@ const fields = ['startUrl', 'step2StartUrl', 'step2SecondUrl', 'stepTimeoutSecon
 async function send(type, payload = {}) { const r = await chrome.runtime.sendMessage({type, ...payload}); if (r?.error) throw new Error(r.error); return r; }
 function error(message) { $('error').textContent = message; $('error').hidden = !message; }
 function fill(config) {
+  $('managed-urls').hidden=!config.managedWorkflowUrls;
+  for(const field of ['startUrl','step2StartUrl','step2SecondUrl'])$(field).readOnly=!!config.managedWorkflowUrls;
   for (const field of fields) $(field).value = config[field] ?? '';
   $('additionalOrigins').value = config.additionalOrigins.join('\n');
   $('delhiPincodes').value = config.delhiPincodes.join(', ');
@@ -17,7 +19,7 @@ $('form').addEventListener('submit', async e => {
     settings.stepTimeoutSeconds = Number(settings.stepTimeoutSeconds); settings.settleMilliseconds = Number(settings.settleMilliseconds);
     settings.additionalOrigins = $('additionalOrigins').value.split(/\s+/).filter(Boolean);
     settings.delhiPincodes = $('delhiPincodes').value.split(/[\s,]+/).filter(Boolean);
-    const result = await send('SAVE_SETTINGS', {settings}); fill(result.config); $('saved').textContent = 'Saved. Open the extension and press Start when ready.';
+    const result = await send('SAVE_SETTINGS', {settings}); fill(result.config); $('saved').textContent = 'Saved. Open the extension and choose Trial, Grab Links or Cancel & Refund.';
   } catch (e) { error(e.message); }
 });
 $('defaults').addEventListener('click', async () => { try { error(''); fill((await send('RESET_SETTINGS')).config); $('saved').textContent = 'Loaded the current workflow.json defaults.'; } catch (e) { error(e.message); } });

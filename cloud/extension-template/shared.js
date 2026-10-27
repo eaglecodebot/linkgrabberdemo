@@ -21,7 +21,7 @@ export function workflowConfig(config, number = 1, previousRun = null) {
   const previous = previousRun?.config;
   // Reuse only missing URLs from the same workflow. Its action definitions,
   // revision and other settings always come from the current configuration.
-  const recover = previous && (previous.workflowNumber || 1) === number &&
+  const recover = !config.managedWorkflowUrls && previous && (previous.workflowNumber || 1) === number &&
     (number === 1 ? !base.startUrl : !step2StartUrl && !step2SecondUrl);
   return number === 1 ? {...base, workflowNumber: 1, startUrl: base.startUrl || (recover ? previous.startUrl : '')}
     : {...base, workflowNumber: 2, startUrl: step2StartUrl || (recover ? previous.startUrl : '') || '', secondUrl: step2SecondUrl || (recover ? previous.secondUrl : '') || '', steps: step2Steps || []};

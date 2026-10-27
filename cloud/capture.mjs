@@ -1,3 +1,4 @@
+import {workflowSettings} from './workflow-settings.mjs';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { hashToken } from './auth.mjs';
 import { pageMatches } from '../src/rules.mjs';
@@ -68,7 +69,7 @@ export async function createCaptureScript(repo,user,panelOrigin,scriptSecret) {
   }
   return readCaptureScript(repo,currentUser,panelOrigin,scriptSecret);
 }
-async function resolveCapture(repo,packet) {
+async function resolveCapture(repo,packet,requireCapturePolicy=true) {
   const fail=(message,status=400)=>{const error=new Error(message);error.status=status;throw error;};
   if(!packet||![4,5,6].includes(packet.version)||!/^([a-f0-9]{64})$/.test(String(packet.captureKey||'')))fail('Invalid capture script. Copy your current script from the Railway panel.',401);
   const key=await repo.captureKey(hashToken(packet.captureKey));
@@ -77,14 +78,18 @@ async function resolveCapture(repo,packet) {
   if(!user?.active||user.authVersion!==key.authVersion||scriptVersion(user)!==scriptVersion(key))fail((user?.scriptRevocation?.reason||'Capture access was revoked.')+' Log in to the panel and regenerate your script.',401);
   if(packet.version!==6||!key.permanent)fail('Copy the updated permanent script from your panel once to use the admin service selector.',426);
   const current=await captureSettings(repo);
-  if(!current.configured)fail('The administrator must configure the main webpage first.',409);
-  if(!current.enabledServices.length)fail('Capturing is paused by the administrator. No services are enabled.',403);
+  if(requireCapturePolicy&&!current.configured)fail('The administrator must configure the main webpage first.',409);
+  if(requireCapturePolicy&&!current.enabledServices.length)fail('Capturing is paused by the administrator. No services are enabled.',403);
   return {key,user,current,fail};
 }
 function validateSource(packet,requestOrigin,panelOrigin,current,fail) {
   const sourceOrigin=new URL(current.pagePattern).origin;
   if(requestOrigin&&requestOrigin!==sourceOrigin&&requestOrigin!==panelOrigin)fail('This website cannot use this capture script.',403);
   if(typeof packet.sourceUrl!=='string'||packet.sourceUrl.length>4000||!pageMatches(current.pagePattern,packet.sourceUrl))fail('This capture is from a different webpage.',403);
+}
+export async function extensionWorkflowConfiguration(repo,packet){
+  const {user}=await resolveCapture(repo,packet,false);
+  return {owner:{username:user.username,name:user.name},workflowUrls:await workflowSettings(repo)};
 }
 export async function extensionConfiguration(repo,packet) {
   const {user,current}=await resolveCapture(repo,packet);

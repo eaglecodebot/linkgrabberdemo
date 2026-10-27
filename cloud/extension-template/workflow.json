@@ -212,18 +212,17 @@
       "action": "click",
       "locators": [
         {
-          "css": "button[data-view-name='premium-chooser-pricing-modal-cta']",
-          "textAny": ["Confirm", "Submit", "Redeem 1 month for ₹0"],
+          "css": ":is([role=\"dialog\"], dialog, .premium-pricing-modal):has(input[name=\"premium-pricing-modal__card-selection\"], #premium-pricing-modal__card-0) button[data-view-name=\"premium-chooser-pricing-modal-cta\"]",
           "authoritative": true
         },
         {
-          "css": "[role=\"dialog\"]:has(input[name=\"premium-pricing-modal__card-selection\"]) button, dialog:has(input[name=\"premium-pricing-modal__card-selection\"]) button, .premium-pricing-modal:has(#premium-pricing-modal__card-0) button",
-          "textAny": ["Confirm", "Submit", "Redeem 1 month for ₹0"],
+          "css": ":is([role=\"dialog\"], dialog, .premium-pricing-modal):has(input[name=\"premium-pricing-modal__card-selection\"], #premium-pricing-modal__card-0) button.artdeco-button--primary:not([data-test-place-order-btn])",
           "authoritative": true
         },
         {
-          "css": "button",
-          "textAny": ["Confirm", "Submit", "Redeem 1 month for ₹0"]
+          "css": "button[data-view-name=\"premium-chooser-pricing-modal-cta\"]",
+          "unlessVisible": ":is([role=\"dialog\"], dialog, .premium-pricing-modal):has(input[name=\"premium-pricing-modal__card-selection\"], #premium-pricing-modal__card-0)",
+          "authoritative": true
         }
       ],
       "requires": [
@@ -348,7 +347,7 @@
       ]
     }
   ],
-  "workflowRevision": 10,
+  "workflowRevision": 11,
   "step2Steps": [
     {
       "id": "dismiss-tooltip",

@@ -1,6 +1,6 @@
 // Contract-test storage. Production always uses Repository + MongoDB.
 export class MemoryRepository {
-  constructor() { this.users = new Map(); this.sessions = new Map(); this.links = new Map(); this.exports = new Map(); this.settings = new Map(); this.captureKeys = new Map(); this.permanentScripts=new Map(); }
+  constructor() { this.users = new Map(); this.sessions = new Map(); this.links = new Map(); this.exports = new Map(); this.settings = new Map(); this.captureKeys = new Map(); this.permanentScripts=new Map();this.extensionUpdates=new Map(); }
   async userByName(name) { return structuredClone([...this.users.values()].find(u => u.username === name)); }
   async userById(id) { return structuredClone(this.users.get(id)); }
   async addUser(u) { if (await this.userByName(u.username)) { const e = new Error('duplicate'); e.code = 11000; throw e; } this.users.set(u._id, { ...u }); }
@@ -15,6 +15,11 @@ export class MemoryRepository {
   async upgradePermanentScript(previous,next){const current=this.permanentScripts.get(previous._id);if(current?.revision===previous.revision&&current.authVersion===previous.authVersion)this.permanentScripts.set(next._id,structuredClone(next));return this.permanentScripts.get(previous._id);}
   async globalCaptureSettings(){return this.settings.get('global:capture')?{value:this.settings.get('global:capture')}:null;}
   async saveGlobalCaptureSettings(value){this.settings.set('global:capture',structuredClone(value));}
+  async globalWorkflowSettings(){const value=this.settings.get('global:workflow');return value?{value:structuredClone(value)}:null;}
+  async saveGlobalWorkflowSettings(value){this.settings.set('global:workflow',structuredClone(value));}
+  async extensionState(ownerId){return structuredClone(this.extensionUpdates.get(ownerId));}
+  async claimExtensionNotice(ownerId,releaseId){const value=this.extensionUpdates.get(ownerId)||{seenReleases:[],downloadedReleases:[]};if(value.seenReleases.includes(releaseId))return false;value.seenReleases.push(releaseId);this.extensionUpdates.set(ownerId,value);return true;}
+  async markExtensionDownloaded(ownerId,releaseId){const value=this.extensionUpdates.get(ownerId)||{seenReleases:[],downloadedReleases:[]};for(const field of ['seenReleases','downloadedReleases'])if(!value[field].includes(releaseId))value[field].push(releaseId);value.lastDownloadedAt=new Date();this.extensionUpdates.set(ownerId,value);}
   async ensurePermanentScript(candidate){const current=this.permanentScripts.get(candidate._id);if(!current||current.authVersion<candidate.authVersion)this.permanentScripts.set(candidate._id,structuredClone(candidate));return this.permanentScripts.get(candidate._id);}
   async installPermanentScript(previous,candidate){const current=this.permanentScripts.get(candidate._id);if(previous?current?.revision===previous.revision:!current)this.permanentScripts.set(candidate._id,structuredClone(candidate));return this.permanentScripts.get(candidate._id);}
   async revokeCaptureKeys(ownerId,reason) { const u=this.users.get(ownerId);u.scriptVersion=(Number(u.scriptVersion)||0)+1;u.scriptRevocation=structuredClone(reason);for(const [id,key] of this.captureKeys)if(key.ownerId===ownerId)this.captureKeys.delete(id); }

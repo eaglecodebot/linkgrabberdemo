@@ -1,3 +1,5 @@
+import {workflowSettings,cleanWorkflowSettings} from './workflow-settings.mjs';
+import {extensionReleaseStatus,currentReleaseId} from './extension-release.mjs';
 import { extensionDownload } from './extension-download.mjs';
 import { textExport } from './text-export.mjs';
 import http from 'node:http';
@@ -6,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { passwordHash, verifyPassword, username, safeUser, hashToken, ownerFor } from './auth.mjs';
 import { perkLink, indianFilename, exportTitle } from '../src/decode.mjs';
 import { exportFormat, exportWorksheets, excelBuffer, sendExcel } from './excel-export.mjs';
-import { acceptCapture, createCaptureScript, readCaptureScript, captureScriptStatus, revocation, captureConfiguration, extensionConfiguration, cleanSettings, captureSettings } from './capture.mjs';
+import { acceptCapture, createCaptureScript, readCaptureScript, captureScriptStatus, revocation, captureConfiguration, extensionConfiguration, extensionWorkflowConfiguration, cleanSettings, captureSettings } from './capture.mjs';
 
 const text = (value, size = 1000) => String(value || '').slice(0, size);
 function validateLink(row, ownerId) {
@@ -50,7 +52,7 @@ export function createApp(repo, { publicOrigin = '', trustProxy = false, scriptS
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'");
     const path = new URL(req.url, 'http://localhost'), route = path.pathname, params = Object.fromEntries(path.searchParams);
     try {
-      if (['/api/capture','/api/capture-config','/api/extension/config','/api/extension/capture'].includes(route)) {
+      if (['/api/capture','/api/capture-config','/api/extension/config','/api/extension/capture','/api/extension/workflow'].includes(route)) {
         const extension=route.startsWith('/api/extension/');
         const origin = req.headers.origin;
         if (origin && extension) {
@@ -73,6 +75,7 @@ export function createApp(repo, { publicOrigin = '', trustProxy = false, scriptS
         const limit=captureAttempts.get(key)||{count:0,until:now+60000};
         if(++limit.count>60)return send(res,{error:'Too many captures. Wait one minute.'},429);captureAttempts.set(key,limit);
         const panelOrigin=publicOrigin||'http://'+req.headers.host;
+        if(extension&&route.endsWith('/workflow'))return send(res,await extensionWorkflowConfiguration(repo,b));
         if(extension)return route.endsWith('/config')?send(res,await extensionConfiguration(repo,b)):send(res,{result:await acceptCapture(repo,b,undefined,panelOrigin)});
         return route === '/api/capture-config' ? send(res,await captureConfiguration(repo,b,origin,panelOrigin)) : send(res,{result:await acceptCapture(repo,b,origin,panelOrigin)});
       }
@@ -97,8 +100,21 @@ export function createApp(repo, { publicOrigin = '', trustProxy = false, scriptS
       if (route.startsWith('/api/')) {
         const { user, tokenHash } = await authenticate(req);
         if(req.method==='GET'&&route==='/api/extension-download') {
-          const {buffer,filename}=await extensionDownload(repo,user,publicOrigin||'http://'+req.headers.host,scriptSecret);
-          res.writeHead(200,{'Content-Type':'application/zip','Content-Disposition':`attachment; filename="${filename}"`,'Content-Length':buffer.length});return res.end(buffer);
+          const {buffer,filename,release}=await extensionDownload(repo,user,publicOrigin||'http://'+req.headers.host,scriptSecret);
+          res.writeHead(200,{'Content-Type':'application/zip','Content-Disposition':`attachment; filename="${filename}"`,'Content-Length':buffer.length,'X-Extension-Release':release.id});return res.end(buffer);
+        }
+        if(req.method==='GET'&&route==='/api/extension-release')return send(res,await extensionReleaseStatus(repo,user._id));
+        if(req.method==='POST'&&route==='/api/extension-release/seen'){
+          const b=await body(req),release=await currentReleaseId(b.releaseId);
+          return send(res,{notify:await repo.claimExtensionNotice(user._id,release.id)});
+        }
+        if(req.method==='POST'&&route==='/api/extension-download/confirm'){
+          const b=await body(req),release=await currentReleaseId(b.releaseId);await repo.markExtensionDownloaded(user._id,release.id);return send(res,{ok:true});
+        }
+        if(req.method==='GET'&&route==='/api/workflow-settings')return send(res,{workflowUrls:await workflowSettings(repo)});
+        if(req.method==='POST'&&route==='/api/workflow-settings'){
+          if(user.role!=='admin')return send(res,{error:'Only an administrator can change extension workflow URLs.'},403);
+          const settings=cleanWorkflowSettings(await body(req));await repo.saveGlobalWorkflowSettings(settings);return send(res,{ok:true});
         }
         if (req.method === 'GET' && route === '/api/me') return send(res, { user: safeUser(user) });
         if(req.method==='GET'&&route==='/api/capture-script/status')return send(res,{scriptStatus:await captureScriptStatus(repo,user,publicOrigin||'http://'+req.headers.host)});

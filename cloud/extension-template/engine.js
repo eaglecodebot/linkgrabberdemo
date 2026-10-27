@@ -70,6 +70,9 @@
       const locators = step.id === 'pincode' && task.pincodeSelector ? [{css: task.pincodeSelector}] : step.locators;
       let scrollTarget, waitingReason;
       for (const locator of locators || []) {
+        // A page-level fallback must not escape an existing Individual dialog
+        // just because that dialog's button has changed or is still loading.
+        if (locator.unlessVisible && query(locator.unlessVisible, scopes).some(canReveal)) continue;
         let candidates = locator.semantic === 'postal' ? postal(scopes) : query(locator.css, scopes);
         if (locator.label) candidates = candidates.filter(el => labelsFor(el).includes(normalize(locator.label)));
         if (locator.text) candidates = candidates.filter(el => normalize(el.innerText || el.textContent) === normalize(locator.text));

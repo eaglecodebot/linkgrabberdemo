@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 let token = sessionStorage.getItem('lg-cloud-token') || '', me = null, users = [], refreshVersion = 0, scriptRequest = 0, scriptMutation = false, displayedScriptId = '';
-let noticeTimer=null,noticeDuration=4000,backgroundError='';
+let noticeTimer=null,noticeDuration=4000,backgroundError='',extensionState=null,captureActive=false,extensionRefresh=null,extensionDownloading=false;
 function dismissNotice(){clearTimeout(noticeTimer);noticeTimer=null;$('notice').hidden=true;}
 function scheduleNotice(){clearTimeout(noticeTimer);if(!$('notice').hidden)noticeTimer=setTimeout(dismissNotice,noticeDuration);}
 function note(message,level='info') {
@@ -25,15 +25,16 @@ async function request(path, data) {
  if(!r.ok){const b=await r.json();if(r.status===401&&path!=='login'&&token===requestToken){signOut();note(b.error||'Please log in again.','error');}const e=new Error(b.error||'Request failed.');e.status=r.status;e.scriptStatus=b.scriptStatus;throw e;}return r;
 }
 async function api(path,data){return (await request(path,data)).json();}
-function clearScript(){displayedScriptId='';$('console-script').value='';$('script-area').hidden=true;$('script-area').open=false;$('generate-script').hidden=true;$('download-extension').hidden=true;$('revoke-scripts').hidden=true;if(me)sessionStorage.removeItem('lg-web-script:'+me.id);}
-function signOut() {scriptRequest++;clearScript();$('script-status').hidden=false;$('script-status-title').textContent='Checking script…';$('script-status-reason').textContent='';$('regenerate-script').hidden=true;$('retry-script-status').hidden=true;token='';me=null;refreshVersion++;sections.reset();$('exports').replaceChildren();sessionStorage.removeItem('lg-cloud-token');$('workspace').hidden=true;$('login-card').hidden=false;$('auth-loading').hidden=true;$('logout').hidden=true;}
+function clearScript(){captureActive=false;$('download-extension').disabled=true;displayedScriptId='';$('console-script').value='';$('script-area').hidden=true;$('script-area').open=false;$('generate-script').hidden=true;$('download-extension').hidden=true;$('revoke-scripts').hidden=true;if(me)sessionStorage.removeItem('lg-web-script:'+me.id);}
+function signOut() {extensionRefresh=null;extensionState=null;$('extension-update').hidden=true;scriptRequest++;clearScript();$('script-status').hidden=false;$('script-status-title').textContent='Checking script…';$('script-status-reason').textContent='';$('regenerate-script').hidden=true;$('retry-script-status').hidden=true;token='';me=null;refreshVersion++;sections.reset();$('exports').replaceChildren();sessionStorage.removeItem('lg-cloud-token');$('workspace').hidden=true;$('login-card').hidden=false;$('auth-loading').hidden=true;$('logout').hidden=true;}
 function renderScriptStatus(status){
- const active=status.status==='active';
+ const active=status.status==='active';captureActive=active;$('download-extension').disabled=!active||extensionDownloading;
  $('script-status').hidden=active;$('retry-script-status').hidden=true;
  if(!active){clearScript();$('script-status-title').textContent=status.status==='missing'?'Generate your private script':'Script revoked · replacement required';$('script-status-reason').textContent=status.reason;}
  $('regenerate-script').hidden=!status.canRegenerate;
  $('regenerate-script').textContent=status.status==='missing'?'Generate script':'Regenerate script';
  if(active){$('download-extension').hidden=false;$('generate-script').hidden=false;$('revoke-scripts').hidden=false;}
+ renderExtensionRelease();
 }
 function unavailableScript(message){clearScript();$('script-status').hidden=false;$('script-status-title').textContent='Script unavailable';$('script-status-reason').textContent=message;$('regenerate-script').hidden=true;$('retry-script-status').hidden=false;}
 async function checkScript(){
@@ -92,6 +93,7 @@ async function enter() {
  $('capture-owner').textContent='Saving to: '+me.username;
  $('admin').hidden=me.role!=='admin'; $('history-user').hidden=me.role!=='admin';
  renderSettings((await api('settings')).settings,true);
+ if(me.role==='admin')renderWorkflowSettings((await api('workflow-settings')).workflowUrls);
  sessionStorage.removeItem('lg-web-script:'+me.id);
  await checkScript();
  if(!me)return;await renderUsers();await refresh();
@@ -128,6 +130,8 @@ async function refresh() {
     const settings=await api('settings');
     if(ownVersion!==refreshVersion||!me)return;
     renderSettings(settings.settings);
+    await refreshExtensionRelease();
+    if(ownVersion!==refreshVersion||!me)return;
     const p = params();
     const selected = users.find(u => u.id === $('history-user').value); $('history-title').textContent = selected ? selected.name + ' — links by service' : 'Your links by service';
     const data = await sections.refresh(p);
@@ -169,4 +173,47 @@ async function restoreSession(){
 $('auth-retry').onclick=run(restoreSession);
 if(token)void restoreSession();else signOut();
 
-$('download-extension').onclick=run(async()=>{const response=await request('extension-download');const filename=response.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1]||'Private_Workflow.zip';saveFile(await response.blob(),filename);note('Your personalized extension downloaded. Extract it and load its folder in your browser.');});
+function renderWorkflowSettings(values){
+ for(const [field,id] of [['startUrl','workflow-start-url'],['step2StartUrl','workflow-step2-start-url'],['step2SecondUrl','workflow-step2-second-url']])$(id).value=values[field]||'';
+}
+$('workflow-settings-form').onsubmit=run(async()=>{
+ await api('workflow-settings',{startUrl:$('workflow-start-url').value,step2StartUrl:$('workflow-step2-start-url').value,step2SecondUrl:$('workflow-step2-second-url').value});
+ renderWorkflowSettings((await api('workflow-settings')).workflowUrls);
+ note('Workflow URLs saved. Installed v1.9+ extensions use them on their next workflow start.','success');
+});
+function renderExtensionRelease(){
+ const state=extensionState;$('extension-update').hidden=!state||state.downloaded;
+ $('download-extension').textContent=state&&!state.downloaded?'Update & download extension':'Download my extension';
+ if(!state)return;
+ $('extension-update-title').textContent='Extension v'+state.release.version+' available';
+ $('extension-update-text').textContent='Download your personal update, replace the files in your installed extension folder, then press Reload on the browser extensions page.';
+ $('download-extension').disabled=!captureActive||extensionDownloading;
+ if(!captureActive)$('extension-update-text').textContent+=' Generate or regenerate your capture script first to enable the download.';
+ $('extension-release-admin').textContent='Current extension version: '+state.release.version+'. Users receive one notification for each changed release.';
+}
+async function refreshExtensionRelease(){
+ if(extensionRefresh)return extensionRefresh;
+ const session=token;
+ const pending=(async()=>{
+  const data=await api('extension-release');if(session!==token||!me)return;
+  extensionState=data;renderExtensionRelease();
+  if(data.notify&&!data.downloaded&&$('notice').hidden){
+   const claim=await api('extension-release/seen',{releaseId:data.release.id});
+   if(session===token&&me&&claim.notify)note('Extension v'+data.release.version+' is available. Use Update & download extension in your capture setup.');
+  }
+ })();extensionRefresh=pending;
+ try{await pending;}finally{if(extensionRefresh===pending)extensionRefresh=null;}
+}
+async function downloadMyExtension(){
+ if(extensionDownloading)return;extensionDownloading=true;renderExtensionRelease();
+ try{
+ const session=token,response=await request('extension-download');
+ const filename=response.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1]||'Private_Workflow.zip',releaseId=response.headers.get('X-Extension-Release');
+ const blob=await response.blob();if(session!==token||!me)return;
+ saveFile(blob,filename);
+ if(releaseId)await api('extension-download/confirm',{releaseId});
+ await refreshExtensionRelease();
+ note('Your personal extension downloaded. Replace its installed files and press Reload on the browser extensions page.','success');
+ }finally{extensionDownloading=false;renderExtensionRelease();}
+}
+$('download-extension').onclick=run(downloadMyExtension);

@@ -2,7 +2,7 @@ import { exportTitle } from '../src/decode.mjs';
 import { hashToken } from './auth.mjs';
 
 export class Repository {
-  constructor(db) { this.db = db; this.users = db.collection('users'); this.sessions = db.collection('sessions'); this.links = db.collection('links'); this.exports = db.collection('exports'); this.settings = db.collection('settings'); this.captureKeys = db.collection('capture_keys'); this.permanentScripts=db.collection('permanent_scripts'); }
+  constructor(db) { this.db = db; this.users = db.collection('users'); this.sessions = db.collection('sessions'); this.links = db.collection('links'); this.exports = db.collection('exports'); this.settings = db.collection('settings'); this.captureKeys = db.collection('capture_keys'); this.permanentScripts=db.collection('permanent_scripts'); this.extensionUpdates=db.collection('extension_updates'); }
   async initialize() {
     await this.users.createIndex({ username: 1 }, { unique: true });
     await this.sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
@@ -28,6 +28,15 @@ export class Repository {
   async upgradePermanentScript(previous,next){await this.permanentScripts.replaceOne({_id:previous._id,revision:previous.revision,authVersion:previous.authVersion},next);return this.permanentScript(previous._id);}
   globalCaptureSettings(){return this.settings.findOne({_id:'global:capture'});}
   saveGlobalCaptureSettings(value){return this.settings.updateOne({_id:'global:capture'},{$set:{value}},{upsert:true});}
+  globalWorkflowSettings(){return this.settings.findOne({_id:'global:workflow'});}
+  saveGlobalWorkflowSettings(value){return this.settings.updateOne({_id:'global:workflow'},{$set:{value}},{upsert:true});}
+  extensionState(ownerId){return this.extensionUpdates.findOne({_id:ownerId});}
+  async claimExtensionNotice(ownerId,releaseId){
+    try{await this.extensionUpdates.updateOne({_id:ownerId},{$setOnInsert:{seenReleases:[],downloadedReleases:[]}},{upsert:true});}catch(e){if(e.code!==11000)throw e;}
+    const result=await this.extensionUpdates.updateOne({_id:ownerId,seenReleases:{$ne:releaseId}},{$addToSet:{seenReleases:releaseId}});
+    return result.modifiedCount===1;
+  }
+  markExtensionDownloaded(ownerId,releaseId){return this.extensionUpdates.updateOne({_id:ownerId},{$addToSet:{seenReleases:releaseId,downloadedReleases:releaseId},$set:{lastDownloadedAt:new Date()}},{upsert:true});}
   async ensurePermanentScript(candidate) {
     try { await this.permanentScripts.updateOne({_id:candidate._id},{$setOnInsert:candidate},{upsert:true}); }
     catch(e) { if(e.code!==11000)throw e; }

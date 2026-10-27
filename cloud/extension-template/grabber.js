@@ -14,11 +14,12 @@ export function captureConnection(){
 async function request(path,body){
   const c=await captureConnection();let r;
   try{r=await fetch(c.panelOrigin+'/api/extension/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:6,captureKey:c.captureKey,...body}),signal:AbortSignal.timeout(12000)});}
-  catch{throw new Error('Cannot reach the Link Grabber panel. Check the connection and retry. No save was confirmed.');}
+  catch{throw new Error(path==='workflow'?'Cannot reach the Link Grabber panel to load workflow URLs. Check the connection and retry.':'Cannot reach the Link Grabber panel. Check the connection and retry. No save was confirmed.');}
   let data;try{data=await r.json();}catch{throw new Error('The Link Grabber server returned an invalid response. No save was confirmed.');}
   if(!r.ok)throw new Error(data.error||'Capture access failed. Download a fresh extension from your panel.');
   return data;
 }
+export async function workflowSetup(){return request('workflow',{});}
 export async function grabSetup(){
   const {owner,settings}=await request('config',{});
   return {owner,settings};
@@ -69,11 +70,11 @@ async function runCapture(tabId,workflowRun){
     const packet=snapshot?.result;if(!packet||!matches(settings.pagePattern,packet.sourceUrl))throw new Error('The webpage changed during capture. Click Grab Links again.');
     const {result}=await request('capture',{...packet,batchId:state.id,startedAt:state.at});
     const message='Saving to '+result.owner.username+': '+result.message;
-    await save({...state,status:result.level==='error'?'error':'done',level:result.level,message,tabId:targetId});
     await notify(targetId,result.level,message);
+    await save({...state,status:result.level==='error'?'error':'done',level:result.level,message,tabId:targetId});
   }catch(e){
-    await save({...state,status:'error',level:'error',message:e.message,tabId:targetId});
     if(targetId)await notify(targetId,'error',e.message);
+    await save({...state,status:'error',level:'error',message:e.message,tabId:targetId});
   }finally{busy=false;}
 }
 export async function startGrab(tabId,workflowRun){

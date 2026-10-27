@@ -2,10 +2,11 @@
   const id = 'link-grabber-extension-result';
   function notify(level, message) {
     document.getElementById(id)?.remove();
-    const host = document.createElement('div'); host.id = id;
+    const host = document.createElement('div'); host.id = id;host.dataset.level=level;
     host.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:2147483647;max-width:380px';
     const root = host.attachShadow({mode:'closed'}), box = document.createElement('div'), close = document.createElement('button');
-    box.style.cssText = 'font:14px/1.5 system-ui;background:#15212f;color:#f1f5f9;padding:15px 40px 15px 18px;border:1px solid '+(level==='error'?'#ed7373':level==='success'?'#58cb96':'#e3b45b')+';border-radius:12px;box-shadow:0 5px 25px #0005';
+    const colors={success:['#154d39','#448969'],error:['#662c32','#b8666d'],warning:['#624719','#b18d42'],info:['#172436','#49607a']},color=colors[level]||colors.info;
+    box.style.cssText = 'font:14px/1.5 system-ui;background:'+color[0]+';color:#f1f5f9;padding:15px 40px 15px 18px;border:1px solid '+color[1]+';border-radius:12px;box-shadow:0 5px 25px #0005';
     box.textContent = message; close.textContent = '×'; close.setAttribute('aria-label','Dismiss');
     close.style.cssText = 'position:absolute;right:10px;top:8px;border:0;background:none;color:#fff;font-size:20px;cursor:pointer';
     close.onclick = () => host.remove(); root.append(box,close); (document.body||document.documentElement).append(host);

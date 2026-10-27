@@ -1,3 +1,24 @@
+WORKFLOW MERGE/COLOR UPDATE v6.4.1
+Upload all updated project files and redeploy Railway. Hard refresh the panel.
+Users download personalized extension v1.9.1 via Update & download extension,
+replace their installed files and Reload the extension. Existing release notices
+are used automatically. No new env variables or active-script regeneration.
+
+EXTENSION RELEASE/WORKFLOW URL UPDATE v6.4.0
+Replace ALL files, including cloud/extension-template and the new cloud modules.
+Redeploy and Ctrl+F5 the panel. The admin should set all three workflow URLs in
+Extension workflow URLs. Users then download their personal extension v1.9.0.
+Once installed, later URL-only changes apply at the next workflow start.
+
+No new env variables. Keep MongoDB and SCRIPT_ENCRYPTION_KEY unchanged.
+The settings collection gets global:workflow and extension_updates stores each
+user's per-release notice/download state. These are created automatically.
+
+For later extension code changes, update the integrated files in
+cloud/extension-template/, bump manifest.json version and redeploy. The panel
+compares runtime-file release IDs and notifies every user once. No database
+reset, manual broadcast or script regeneration is needed.
+
 PERSONAL EXTENSION UPDATE v6.3.0
 Replace ALL files including cloud/extension-template and the package/lockfiles.
 The existing Dockerfile includes the extension template and installs JSZip.

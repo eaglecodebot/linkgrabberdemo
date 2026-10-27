@@ -1,6 +1,6 @@
 {
   "name": "link-grabber-web",
-  "version": "6.3.0",
+  "version": "6.4.1",
   "private": true,
   "type": "module",
   "description": "Hosted browser capture, private MongoDB history and admin/user panels",

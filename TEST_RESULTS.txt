@@ -1,7 +1,47 @@
-VERIFICATION — LINK GRABBER WEB v6.3.0 — 27 OCTOBER 2026 (IST)
+VERIFICATION — LINK GRABBER WEB v6.4.1 — 28 OCTOBER 2026 (IST)
 =============================================================
 
-Automated Node API/logic tests: 47 passed, 0 failed.
+Automated Node API/logic tests: 51 passed, 0 failed.
+Supplied v1.7.4 workflow merge / notification color checks:
+- engine.js and workflow.json match the supplied v1.7.4 files exactly; the merged
+  extension is v1.9.1. Grabber and admin-managed URL integration remain present.
+- The updated Individual continuation browser suite passes all six combinations
+  of direct/frame layouts and Confirm/Start free trial/unknown button wording.
+  It checks disabled/busy states, parent overlays, ambiguous dialog buttons and
+  stale outside CTAs, then finishes only the fixture checkout in order.
+- Cancel & Refund browser integration passes: settings, captured tooltip,
+  subscription selection, repeated Continue screens, Confirm cancel then URL 2,
+  cross-origin navigation, pause/refresh/worker recovery and same-tab support.
+- Personalized capture/download/admin-URL browser integration passes after merge.
+- All four full-background palettes were rendered and visually inspected for
+  source toasts and popup status: green, amber, red and blue match the script.
+- Terminal popup capture state is published after its webpage notification.
+- API/logic 51 passed; workflow state/wakeup 30 passed. Native Chrome/GoLogin
+  extension APIs remain modeled by the browser adapter, not a native install.
+  No live production trial, cancellation, refund or voucher redemption was run.
+
+Release/admin workflow checks:
+- Admin-only workflow settings validate all three HTTP(S) URLs, persist in Mongo
+  separately from capture settings, and reject normal-user writes.
+- Personalized v1.9.0 ZIPs include admin URLs and needed host permissions. Live
+  workflow starts fetch the latest admin values even while capture is paused.
+- Old local URL preferences cannot override the managed values; URL fields in
+  extension Settings are read-only. Clearing a URL prevents old-run recovery.
+- Runtime-byte release IDs change when code/assets change without a version bump;
+  README/test/private connection data are excluded; nested assets are included.
+- A Mongo conditional add-to-set claims each notice once per release per user,
+  including concurrent claims. Login/session versions are unaffected.
+- ZIP delivery alone does not mark an update downloaded. Client acknowledgement
+  clears the card only for that account and current release; stale IDs fail.
+- Node API/logic suites: 51 passed. Supplied workflow state/wakeup: 30 passed.
+- Chromium web-panel form save/reload and extension capture/update browser suites
+  passed. Update cards clear after confirmed download and stay clear on reload.
+  Managed URLs override old local values, fresh starts use changed admin URLs,
+  and extension Options displays read-only managed fields. A new admin hostname
+  can be granted on retry without reusing stale URL permission requests.
+- Browser chrome.* APIs use the existing test adapter; native GoLogin installation
+  is not available here. No production checkout/cancel/refund action was executed.
+
 Personalized extension checks:
 - ZIPs embed the signed-in user's current capture key, username and panel URL.
   Downloads preserve the console script; no key is silently regenerated.

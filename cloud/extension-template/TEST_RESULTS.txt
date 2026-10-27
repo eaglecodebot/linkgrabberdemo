@@ -1,3 +1,39 @@
+PRIVATE WORKFLOW RUNNER v1.9.1 — v1.7.4 WORKFLOW MERGE
+28 October 2026 (IST)
+
+Current checks pass: supplied v1.7.4 Individual-confirm browser regression (six
+layout/wording combinations), Cancel & Refund browser integration, integrated
+capture/personal ZIP/admin URL browser checks, 51 API/logic and 30 workflow
+state/wakeup tests. Four notification palettes were rendered and inspected.
+Source engine/workflow files match the supplied v1.7.4 update byte for byte.
+Native extension installation is unavailable here; Chrome APIs use the existing
+test adapter. Only local fake checkout/refund/reward fixtures were exercised.
+
+Historical validation follows for reference:
+
+PRIVATE WORKFLOW RUNNER v1.9.0 — MANAGED URL/RELEASE UPDATE
+28 October 2026 (IST)
+
+Current verification:
+51 Link Grabber API/logic tests passed, including release notices, confirmed
+personal downloads, three admin-only workflow URLs and scoped capture access.
+30 supplied workflow state/wakeup regressions passed. Real Chromium fixture
+integration verifies live managed URLs at START, rejection of local overrides,
+read-only URL inputs in Options, capture/tab behavior and download-card clearing.
+The main web-panel browser suite verifies the admin URL form persists on reload.
+The engine.js, content.js and workflow action definitions remain unchanged.
+shared.js now disables prior-run URL recovery for admin-managed URLs; unmanaged
+legacy workflow tests retain their original behavior. Background/options/popup
+changes support the managed values and current capture key.
+
+Native Chrome/GoLogin installation remains untested: this runtime lacks native
+extension loading. Chrome APIs are modeled by a test adapter; browser DOM, HTTP,
+forms, downloads and source fixtures run in real Chromium. No production purchase,
+cancel, refund or reward redemption was executed.
+
+The following is historical test context, not a claim that every old browser
+suite was rerun for v1.9.0:
+
 PRIVATE WORKFLOW RUNNER v1.8.0 — LINK GRABBER INTEGRATION
 27 October 2026 (IST)
 
