@@ -1,7 +1,28 @@
-VERIFICATION — LINK GRABBER WEB v6.2.1 — 25 OCTOBER 2026 (IST)
+VERIFICATION — LINK GRABBER WEB v6.3.0 — 27 OCTOBER 2026 (IST)
 =============================================================
 
-Automated Node API/logic tests: 44 passed, 0 failed.
+Automated Node API/logic tests: 47 passed, 0 failed.
+Personalized extension checks:
+- ZIPs embed the signed-in user's current capture key, username and panel URL.
+  Downloads preserve the console script; no key is silently regenerated.
+- Missing/revoked scripts require explicit generation; password changes stop
+  old extension keys and panel sessions. A fresh download uses the replacement.
+- Key-only extension endpoints enforce owner isolation, page/service selection,
+  source URLs, paused policy, missing services, duplicates and save confirmation.
+- Extension-origin requests use a separate scoped endpoint; arbitrary web origins
+  are rejected. Webpage-origin messages cannot start the Grab Links action.
+- Full URLs are decoded with the same production matcher as the console script.
+  No destination/reward URL is requested by the grabber.
+- Real Chromium DOM/network/UI test passes with a chrome.* test adapter, including
+  blank-tab navigation, matching background-tab reuse, source CSP, live admin
+  URL/service changes, revoked keys, and an actual panel ZIP download.
+- The supplied 30 workflow state/wakeup regressions and restart-buttons browser
+  test passed. Existing engine/content/workflow definitions remain unchanged.
+- Production cloud dependency installation passed (npm ci --omit=dev).
+- Native extension installation/permissions were not tested: this environment's
+  Chromium lacks the extension loading subsystem. Chrome APIs were modeled;
+  real GoLogin/LinkedIn pages and Atlas were not used. Fake reward codes only.
+
 TXT grouping checks:
 - Mixed URLs become ordered service sections with headings and blank lines.
 - Original full URLs, signed encoding and per-service order are preserved.

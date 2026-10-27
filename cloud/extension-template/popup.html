@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Private Workflow Runner</title><link rel="stylesheet" href="ui.css"></head>
+<body class="popup"><main>
+  <div class="eyebrow">PRIVATE WORKFLOWS <span id="version"></span></div><h1 id="workflowTitle">Your workflows</h1><p class="muted">Choose the workflow you want to run.</p>
+  <section class="status-card"><div class="status-line"><strong id="status">Loading…</strong><span id="counter"></span></div><progress id="progress" value="0" max="14"></progress><p id="message" aria-live="polite"></p></section>
+  <p id="error" class="error" role="alert" hidden></p>
+  <div class="actions"><button id="start" class="primary">Trial</button><button id="grab-links" class="primary">Grab Links</button><button id="start2" class="primary">Cancel &amp; Refund</button><button id="pause" hidden>Pause</button><button id="resume" class="primary" hidden>Resume</button><button id="allow" class="primary" hidden>Allow website & continue</button><button id="retry" hidden>Retry this action</button><button id="stop" class="danger" hidden>Stop</button></div>
+  <p id="grab-status" class="fine" role="status" aria-live="polite"></p>
+  <div class="secondary"><button id="settings" class="text-button">Settings</button><button id="diagnostics" class="text-button">Download diagnostics</button></div>
+  <p id="hint" class="fine">Grab Links saves to your connected account and opens the admin-configured page when needed. The other workflow buttons reuse an open matching page or navigate your current tab to the configured URL. Trial finishes by bringing the generated QR code into view. The popup hides after a successful start.</p>
+  <details><summary>Recent activity</summary><ol id="log" class="log"></ol></details>
+</main><script type="module" src="popup.js"></script></body></html>

@@ -86,6 +86,10 @@ function validateSource(packet,requestOrigin,panelOrigin,current,fail) {
   if(requestOrigin&&requestOrigin!==sourceOrigin&&requestOrigin!==panelOrigin)fail('This website cannot use this capture script.',403);
   if(typeof packet.sourceUrl!=='string'||packet.sourceUrl.length>4000||!pageMatches(current.pagePattern,packet.sourceUrl))fail('This capture is from a different webpage.',403);
 }
+export async function extensionConfiguration(repo,packet) {
+  const {user,current}=await resolveCapture(repo,packet);
+  return {owner:{username:user.username,name:user.name},settings:{...current,rules:SERVICE_RULES}};
+}
 export async function captureConfiguration(repo,packet,requestOrigin,panelOrigin) {
   const {user,current,fail}=await resolveCapture(repo,packet);validateSource(packet,requestOrigin,panelOrigin,current,fail);
   return {owner:{username:user.username,name:user.name},settings:{...current,rules:SERVICE_RULES}};

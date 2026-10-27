@@ -1,3 +1,4 @@
+import { extensionDownload } from './extension-download.mjs';
 import { textExport } from './text-export.mjs';
 import http from 'node:http';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -5,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { passwordHash, verifyPassword, username, safeUser, hashToken, ownerFor } from './auth.mjs';
 import { perkLink, indianFilename, exportTitle } from '../src/decode.mjs';
 import { exportFormat, exportWorksheets, excelBuffer, sendExcel } from './excel-export.mjs';
-import { acceptCapture, createCaptureScript, readCaptureScript, captureScriptStatus, revocation, captureConfiguration, cleanSettings, captureSettings } from './capture.mjs';
+import { acceptCapture, createCaptureScript, readCaptureScript, captureScriptStatus, revocation, captureConfiguration, extensionConfiguration, cleanSettings, captureSettings } from './capture.mjs';
 
 const text = (value, size = 1000) => String(value || '').slice(0, size);
 function validateLink(row, ownerId) {
@@ -49,9 +50,14 @@ export function createApp(repo, { publicOrigin = '', trustProxy = false, scriptS
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'");
     const path = new URL(req.url, 'http://localhost'), route = path.pathname, params = Object.fromEntries(path.searchParams);
     try {
-      if (route === '/api/capture' || route === '/api/capture-config') {
+      if (['/api/capture','/api/capture-config','/api/extension/config','/api/extension/capture'].includes(route)) {
+        const extension=route.startsWith('/api/extension/');
         const origin = req.headers.origin;
-        if (origin) {
+        if (origin && extension) {
+          if(!/^chrome-extension:\/\/[a-p]{32}$/.test(origin))return send(res,{error:'This endpoint is available to the private extension only.'},403);
+          res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');
+        }
+        if (origin && !extension) {
           let parsed;try { parsed = new URL(origin); } catch { return send(res,{error:'Invalid request origin.'},403); }
           if (!['https:','http:'].includes(parsed.protocol) || parsed.origin !== origin) return send(res,{error:'Invalid request origin.'},403);
           res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');
@@ -67,6 +73,7 @@ export function createApp(repo, { publicOrigin = '', trustProxy = false, scriptS
         const limit=captureAttempts.get(key)||{count:0,until:now+60000};
         if(++limit.count>60)return send(res,{error:'Too many captures. Wait one minute.'},429);captureAttempts.set(key,limit);
         const panelOrigin=publicOrigin||'http://'+req.headers.host;
+        if(extension)return route.endsWith('/config')?send(res,await extensionConfiguration(repo,b)):send(res,{result:await acceptCapture(repo,b,undefined,panelOrigin)});
         return route === '/api/capture-config' ? send(res,await captureConfiguration(repo,b,origin,panelOrigin)) : send(res,{result:await acceptCapture(repo,b,origin,panelOrigin)});
       }
       if (req.headers.origin && publicOrigin && req.headers.origin !== publicOrigin) return send(res, { error: 'Origin not allowed.' }, 403);
@@ -89,6 +96,10 @@ export function createApp(repo, { publicOrigin = '', trustProxy = false, scriptS
       }
       if (route.startsWith('/api/')) {
         const { user, tokenHash } = await authenticate(req);
+        if(req.method==='GET'&&route==='/api/extension-download') {
+          const {buffer,filename}=await extensionDownload(repo,user,publicOrigin||'http://'+req.headers.host,scriptSecret);
+          res.writeHead(200,{'Content-Type':'application/zip','Content-Disposition':`attachment; filename="${filename}"`,'Content-Length':buffer.length});return res.end(buffer);
+        }
         if (req.method === 'GET' && route === '/api/me') return send(res, { user: safeUser(user) });
         if(req.method==='GET'&&route==='/api/capture-script/status')return send(res,{scriptStatus:await captureScriptStatus(repo,user,publicOrigin||'http://'+req.headers.host)});
         if((req.method==='GET'||req.method==='POST')&&route==='/api/capture-script') {if(req.method==='POST')await body(req);return send(res,await readCaptureScript(repo,user,publicOrigin||'http://'+req.headers.host,scriptSecret));}

@@ -1,0 +1,500 @@
+{
+  "startUrl": "",
+  "step2StartUrl": "",
+  "step2SecondUrl": "",
+  "additionalOrigins": [],
+  "stepTimeoutSeconds": 120,
+  "settleMilliseconds": 200,
+  "pincodeMode": "random",
+  "pincode": "",
+  "delhiPincodes": [
+    "110001",
+    "110002",
+    "110003",
+    "110004",
+    "110005",
+    "110006",
+    "110007",
+    "110008",
+    "110010",
+    "110011",
+    "110012",
+    "110013",
+    "110014",
+    "110015",
+    "110016",
+    "110017",
+    "110018",
+    "110019",
+    "110020",
+    "110021",
+    "110022",
+    "110023",
+    "110024",
+    "110025",
+    "110026",
+    "110027",
+    "110028",
+    "110029",
+    "110030",
+    "110031",
+    "110032",
+    "110033",
+    "110034",
+    "110035",
+    "110036",
+    "110037",
+    "110038",
+    "110039",
+    "110040",
+    "110041",
+    "110042",
+    "110043",
+    "110044",
+    "110045",
+    "110046",
+    "110047",
+    "110048",
+    "110049",
+    "110051",
+    "110052",
+    "110053",
+    "110054",
+    "110055",
+    "110056",
+    "110057",
+    "110058"
+  ],
+  "pincodeSelector": "",
+  "steps": [
+    {
+      "id": "premium",
+      "title": "Open Premium",
+      "action": "click",
+      "locators": [
+        {
+          "css": "a",
+          "text": "Access exclusive tools & insights Try Premium for ₹0"
+        },
+        {
+          "css": "p",
+          "text": "Try Premium for ₹0",
+          "closest": "a"
+        }
+      ],
+      "context": []
+    },
+    {
+      "id": "other",
+      "title": "Select Other",
+      "action": "check",
+      "locators": [
+        {
+          "css": "input[data-test-text-selectable-option__input=\"Other\"]"
+        },
+        {
+          "css": "input[type=\"checkbox\"]",
+          "label": "Other"
+        }
+      ],
+      "context": [
+        {
+          "kind": "frame",
+          "css": "iframe[data-testid=\"interop-iframe\"]"
+        }
+      ],
+      "allowTopLevelFallback": true
+    },
+    {
+      "id": "next",
+      "title": "Continue the survey",
+      "action": "click",
+      "requires": [
+        "other"
+      ],
+      "locators": [
+        {
+          "css": "button",
+          "text": "Next"
+        }
+      ],
+      "context": [
+        {
+          "kind": "frame",
+          "css": "iframe[data-testid=\"interop-iframe\"]"
+        }
+      ],
+      "allowTopLevelFallback": true,
+      "before": [
+        {
+          "id": "dismiss-chat-tooltip",
+          "title": "Dismiss chat tooltip",
+          "action": "click",
+          "context": [],
+          "locators": [
+            {
+              "css": "button.chat-button__tooltip-dismiss"
+            },
+            {
+              "css": "button[aria-label=\"Dismiss chat tooltip\"]"
+            },
+            {
+              "css": "button",
+              "text": "Dismiss chat tooltip"
+            }
+          ],
+          "searchActionFrames": true
+        }
+      ]
+    },
+    {
+      "id": "career",
+      "title": "Learn more about Career",
+      "action": "click",
+      "locators": [
+        {
+          "css": "button[aria-label='Learn more about Career']"
+        }
+      ],
+      "context": [
+        {
+          "kind": "frame",
+          "css": "iframe[data-testid=\"interop-iframe\"]"
+        }
+      ],
+      "allowTopLevelFallback": true
+    },
+    {
+      "id": "redeem",
+      "title": "Redeem the one-month offer",
+      "action": "click",
+      "locators": [
+        {
+          "css": "form button[data-view-name=\"premium-checkout-primary-cta-action\"]",
+          "text": "Redeem 1 month for ₹0"
+        },
+        {
+          "css": "form > div > button[role=\"link\"]",
+          "text": "Redeem 1 month for ₹0"
+        }
+      ],
+      "context": [
+        {
+          "kind": "frame",
+          "css": "iframe[data-testid=\"interop-iframe\"]"
+        }
+      ],
+      "allowTopLevelFallback": true
+    },
+    {
+      "id": "individual",
+      "title": "Choose the Individual plan",
+      "action": "radio",
+      "context": [
+        {
+          "kind": "frame",
+          "css": "iframe[data-testid=\"interop-iframe\"]"
+        }
+      ],
+      "locators": [
+        {
+          "css": "#premium-pricing-modal__card-0[type=\"radio\"]"
+        },
+        {
+          "css": "input[name=\"premium-pricing-modal__card-selection\"][value=\"0\"]"
+        }
+      ],
+      "allowTopLevelFallback": true
+    },
+    {
+      "id": "confirm-individual",
+      "title": "Continue with the Individual plan",
+      "action": "click",
+      "locators": [
+        {
+          "css": "button[data-view-name='premium-chooser-pricing-modal-cta']",
+          "textAny": ["Confirm", "Submit", "Redeem 1 month for ₹0"],
+          "authoritative": true
+        },
+        {
+          "css": "[role=\"dialog\"]:has(input[name=\"premium-pricing-modal__card-selection\"]) button, dialog:has(input[name=\"premium-pricing-modal__card-selection\"]) button, .premium-pricing-modal:has(#premium-pricing-modal__card-0) button",
+          "textAny": ["Confirm", "Submit", "Redeem 1 month for ₹0"],
+          "authoritative": true
+        },
+        {
+          "css": "button",
+          "textAny": ["Confirm", "Submit", "Redeem 1 month for ₹0"]
+        }
+      ],
+      "requires": [
+        "individual"
+      ],
+      "context": [
+        {
+          "kind": "frame",
+          "css": "iframe[data-testid=\"interop-iframe\"]"
+        }
+      ],
+      "allowTopLevelFallback": true
+    },
+    {
+      "id": "monthly",
+      "title": "Choose Monthly",
+      "action": "radio",
+      "locators": [
+        {
+          "css": "input[data-test-billing-cycle-card-radio-button='MONTHLY']"
+        }
+      ],
+      "context": []
+    },
+    {
+      "id": "upi",
+      "title": "Open UPI",
+      "action": "expand",
+      "requires": [
+        "monthly"
+      ],
+      "locators": [
+        {
+          "css": "[data-test-upi-panel-header]",
+          "closest": "button"
+        }
+      ],
+      "context": []
+    },
+    {
+      "id": "qr",
+      "title": "Choose the UPI QR code",
+      "action": "radio",
+      "requires": [
+        "monthly",
+        "upi"
+      ],
+      "locators": [
+        {
+          "css": "#upi-qr-code-button[name='upi-payment-option'][value='QR_CODE']"
+        }
+      ],
+      "context": []
+    },
+    {
+      "id": "pincode",
+      "title": "Enter the pincode",
+      "action": "type",
+      "valueFrom": "pincode",
+      "requires": [
+        "monthly",
+        "upi",
+        "qr"
+      ],
+      "locators": [
+        {
+          "css": "input[type=\"text\"]",
+          "label": "Pin code"
+        },
+        {
+          "semantic": "postal"
+        }
+      ],
+      "context": []
+    },
+    {
+      "id": "continue",
+      "title": "Continue with UPI",
+      "action": "click",
+      "requires": [
+        "monthly",
+        "upi",
+        "qr",
+        "pincode"
+      ],
+      "locators": [
+        {
+          "css": "button[data-test-save-upi-button]",
+          "text": "Continue"
+        }
+      ],
+      "context": []
+    },
+    {
+      "id": "finish",
+      "title": "Click Start my free trial",
+      "action": "click",
+      "noRepeat": true,
+      "locators": [
+        {
+          "css": "button[data-test-place-order-btn]"
+        }
+      ],
+      "context": [],
+      "afterPreviousMilliseconds": 3000,
+      "enabledMilliseconds": 500
+    },
+    {
+      "id": "show-qr",
+      "title": "Bring the generated UPI QR code to the middle of the screen",
+      "action": "reveal",
+      "final": true,
+      "afterNavigation": true,
+      "context": [],
+      "locators": [
+        {
+          "css": "img[data-test-upi-processing-upi-qr-code-image]"
+        },
+        {
+          "css": "img.upi-processing__upi-qr-code-image[alt=\"UPI QR Code\"]"
+        }
+      ]
+    }
+  ],
+  "workflowRevision": 10,
+  "step2Steps": [
+    {
+      "id": "dismiss-tooltip",
+      "title": "Dismiss chat tooltip if present",
+      "action": "prepare",
+      "before": [
+        {
+          "id": "dismiss-chat-tooltip",
+          "title": "Dismiss chat tooltip",
+          "action": "click",
+          "context": [],
+          "locators": [
+            {
+              "css": "button.chat-button__tooltip-dismiss"
+            },
+            {
+              "css": "button[aria-label=\"Dismiss chat tooltip\"]"
+            },
+            {
+              "css": "button",
+              "text": "Dismiss chat tooltip"
+            }
+          ],
+          "searchActionFrames": true
+        }
+      ],
+      "context": []
+    },
+    {
+      "id": "premium-career",
+      "title": "Open the captured Premium Career subscription",
+      "action": "click",
+      "context": [],
+      "locators": [
+        {
+          "css": "div:nth-of-type(2) > div > div > div > div:nth-of-type(1) > a[data-test-link-text-cell-link]",
+          "text": "Premium Career"
+        },
+        {
+          "css": "a[data-test-link-text-cell-link]",
+          "text": "Premium Career"
+        }
+      ],
+      "before": [
+        {
+          "id": "dismiss-chat-tooltip",
+          "title": "Dismiss chat tooltip",
+          "action": "click",
+          "context": [],
+          "locators": [
+            {
+              "css": "button.chat-button__tooltip-dismiss"
+            },
+            {
+              "css": "button[aria-label=\"Dismiss chat tooltip\"]"
+            },
+            {
+              "css": "button",
+              "text": "Dismiss chat tooltip"
+            }
+          ],
+          "searchActionFrames": true
+        }
+      ]
+    },
+    {
+      "id": "cancel-subscription",
+      "title": "Cancel subscription",
+      "action": "click",
+      "context": [],
+      "locators": [
+        {
+          "css": "a[data-test-cancel_subscription_premium-btn]"
+        }
+      ]
+    },
+    {
+      "id": "continue-cancel-1",
+      "title": "Continue to cancel — first screen",
+      "action": "click",
+      "context": [],
+      "transitionRequired": true,
+      "locators": [
+        {
+          "css": "button",
+          "text": "Continue to cancel"
+        }
+      ]
+    },
+    {
+      "id": "continue-cancel-2",
+      "title": "Continue to cancel — second screen",
+      "action": "click",
+      "context": [],
+      "afterPreviousMilliseconds": 500,
+      "locators": [
+        {
+          "css": "button",
+          "text": "Continue to cancel"
+        }
+      ]
+    },
+    {
+      "id": "confirm-cancel",
+      "title": "Confirm cancel",
+      "action": "click",
+      "context": [],
+      "locators": [
+        {
+          "css": "a",
+          "text": "Confirm cancel"
+        }
+      ]
+    },
+    {
+      "id": "open-second-url",
+      "title": "Open URL 2 after Confirm cancel",
+      "action": "navigate",
+      "urlFrom": "secondUrl",
+      "afterPreviousMilliseconds": 1500,
+      "context": []
+    },
+    {
+      "id": "refund-submit",
+      "title": "Submit",
+      "action": "click",
+      "context": [],
+      "locators": [
+        {
+          "css": "button[data-test-refund__next-button]"
+        }
+      ]
+    },
+    {
+      "id": "contact-support",
+      "title": "Contact LinkedIn Support",
+      "action": "click",
+      "sameTab": true,
+      "final": true,
+      "context": [],
+      "locators": [
+        {
+          "css": "a[data-test-refund-action-button]",
+          "text": "Contact LinkedIn Support"
+        }
+      ]
+    }
+  ]
+}

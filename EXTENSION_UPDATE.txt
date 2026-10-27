@@ -1,0 +1,15 @@
+LINK GRABBER WEB v6.3.0 / PRIVATE WORKFLOW RUNNER v1.8.0
+27 October 2026 (IST)
+
+Deploy all project files to Railway, then hard refresh your web panel.
+Click Download my extension next to Copy my script. Each account receives a ZIP
+containing its own permanent capture connection. No manual script/key entry.
+Extract the ZIP, open chrome://extensions, enable Developer mode, Load unpacked.
+
+The middle Grab Links button reuses/opens the admin-configured page and captures
+all enabled services into the connected user's MongoDB history. A bottom-right
+webpage notification confirms the save or explains duplicates/missing links.
+The existing console script and both supplied workflows remain available.
+
+No new environment variables. Keep your existing encryption key.
+Revoked connections require script regeneration and a fresh extension download.

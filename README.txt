@@ -1,5 +1,64 @@
-LINK GRABBER WEB v6.2.1
+LINK GRABBER WEB v6.3.0
 ======================
+
+PERSONAL WORKFLOW EXTENSION v6.3.0
+The console script remains available. Download my extension appears beside Copy
+my script when that account has an active capture script. Every signed-in user
+gets the same extension features with their own capture connection preinstalled.
+An admin viewing another user's history still downloads the admin's own extension.
+
+USER SETUP
+1. Log in to your existing Link Grabber web panel.
+2. If no active script exists, use Generate script / Regenerate script explicitly.
+3. Click Download my extension beside Copy my script.
+4. Extract your personal ZIP to a permanent folder on the PC.
+5. Open chrome://extensions, enable Developer mode, click Load unpacked and
+   select the extracted folder containing manifest.json. Edge uses edge://extensions.
+6. Pin/open the extension. Its buttons are Trial | Grab Links | Cancel & Refund.
+   Use Grab Links to collect. No script/key needs to be pasted in the extension.
+
+GRAB LINKS
+- Reuses the current matching webpage or a matching tab in the current window.
+- Otherwise navigates the current tab to the configured webpage. Opens a new tab
+  only when no current tab is available. Browser New Tab pages are supported.
+- The main URL and enabled services still come only from the admin's web settings.
+- An exact main URL is best for automatic navigation. When opening a wildcard
+  pattern, * characters are removed to obtain its concrete starting URL.
+- If the source site requires login, sign in there and click Grab Links again.
+- Captures all selected-service links from the main document, decodes locally,
+  then saves directly through the extension background worker. Reward links
+  are never opened, followed or redeemed by the grabber.
+- Ready links are collected immediately; incomplete pages get up to 3 seconds
+  to show missing services. Initial page loading and network/database latency
+  can take longer than this; a fixed 2–3 second end-to-end limit is not guaranteed.
+- A bottom-right message on the webpage confirms success, duplicates or missing
+  links. Source messages dismiss after 4/6/8 seconds for success/warning/error.
+  The extension popup retains the most recent capture result for review.
+- A workflow and a capture cannot run together. Stop the current workflow before
+  using Grab Links; wait for capture to finish before starting Trial/Cancel.
+- Trial and Cancel & Refund retain their supplied workflow definitions/settings.
+  Configure their private URLs in extension Settings as before.
+
+CONNECTION AND UPDATES
+The extension uses the same permanent capture key as that user's console script.
+It works without a panel session. It cannot read/export account history or access
+admin controls. Keep a downloaded ZIP private because it contains the capture key.
+Password changes, script revocation and account disablement revoke the extension
+connection too. Regenerate the script in the panel, then download the new ZIP.
+Existing active console scripts do not require regeneration for this upgrade.
+For extension updates, extract the new ZIP over the same installed folder and
+press Reload on chrome://extensions to retain that browser's workflow settings.
+A page/service setting change is fetched on the next capture; a new source host
+may require a browser website-access prompt. No GoLogin API is needed.
+The extension is installed separately in each browser/profile where you use it.
+
+DEPLOY THIS UPDATE
+Upload every project file, including cloud/extension-template and both dependency
+lockfiles, then redeploy Railway. Ctrl+F5 the web panel after deployment.
+JSZip is a production dependency and is installed automatically by the Dockerfile.
+No new environment variables. Keep the same MongoDB and SCRIPT_ENCRYPTION_KEY.
+Personal ZIPs are generated on demand in memory; no real user key is in this
+project archive. Source template files alone are not a personalized installation.
 
 ORGANIZED TXT EXPORT v6.2.1
 Export all TXT groups full links under YouTube, Lovable, Notion, NordVPN and

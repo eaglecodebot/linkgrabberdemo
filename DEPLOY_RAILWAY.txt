@@ -1,3 +1,11 @@
+PERSONAL EXTENSION UPDATE v6.3.0
+Replace ALL files including cloud/extension-template and the package/lockfiles.
+The existing Dockerfile includes the extension template and installs JSZip.
+Redeploy, then Ctrl+F5 the panel. Users download their own personalized extension
+from the panel next to Copy my script, extract it and use Load unpacked.
+No new env variables or console script regeneration for an already active script.
+Keep MongoDB and SCRIPT_ENCRYPTION_KEY unchanged.
+
 TXT GROUPING UPDATE v6.2.1
 Replace all files, redeploy Railway, then Ctrl+F5 the panel.
 No environment changes or script regeneration required.

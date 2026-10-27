@@ -25,7 +25,7 @@ async function request(path, data) {
  if(!r.ok){const b=await r.json();if(r.status===401&&path!=='login'&&token===requestToken){signOut();note(b.error||'Please log in again.','error');}const e=new Error(b.error||'Request failed.');e.status=r.status;e.scriptStatus=b.scriptStatus;throw e;}return r;
 }
 async function api(path,data){return (await request(path,data)).json();}
-function clearScript(){displayedScriptId='';$('console-script').value='';$('script-area').hidden=true;$('script-area').open=false;$('generate-script').hidden=true;$('revoke-scripts').hidden=true;if(me)sessionStorage.removeItem('lg-web-script:'+me.id);}
+function clearScript(){displayedScriptId='';$('console-script').value='';$('script-area').hidden=true;$('script-area').open=false;$('generate-script').hidden=true;$('download-extension').hidden=true;$('revoke-scripts').hidden=true;if(me)sessionStorage.removeItem('lg-web-script:'+me.id);}
 function signOut() {scriptRequest++;clearScript();$('script-status').hidden=false;$('script-status-title').textContent='Checking script…';$('script-status-reason').textContent='';$('regenerate-script').hidden=true;$('retry-script-status').hidden=true;token='';me=null;refreshVersion++;sections.reset();$('exports').replaceChildren();sessionStorage.removeItem('lg-cloud-token');$('workspace').hidden=true;$('login-card').hidden=false;$('auth-loading').hidden=true;$('logout').hidden=true;}
 function renderScriptStatus(status){
  const active=status.status==='active';
@@ -33,7 +33,7 @@ function renderScriptStatus(status){
  if(!active){clearScript();$('script-status-title').textContent=status.status==='missing'?'Generate your private script':'Script revoked · replacement required';$('script-status-reason').textContent=status.reason;}
  $('regenerate-script').hidden=!status.canRegenerate;
  $('regenerate-script').textContent=status.status==='missing'?'Generate script':'Regenerate script';
- if(active){$('generate-script').hidden=false;$('revoke-scripts').hidden=false;}
+ if(active){$('download-extension').hidden=false;$('generate-script').hidden=false;$('revoke-scripts').hidden=false;}
 }
 function unavailableScript(message){clearScript();$('script-status').hidden=false;$('script-status-title').textContent='Script unavailable';$('script-status-reason').textContent=message;$('regenerate-script').hidden=true;$('retry-script-status').hidden=false;}
 async function checkScript(){
@@ -168,3 +168,5 @@ async function restoreSession(){
 }
 $('auth-retry').onclick=run(restoreSession);
 if(token)void restoreSession();else signOut();
+
+$('download-extension').onclick=run(async()=>{const response=await request('extension-download');const filename=response.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1]||'Private_Workflow.zip';saveFile(await response.blob(),filename);note('Your personalized extension downloaded. Extract it and load its folder in your browser.');});

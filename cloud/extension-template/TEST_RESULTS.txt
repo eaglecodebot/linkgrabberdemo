@@ -1,0 +1,231 @@
+PRIVATE WORKFLOW RUNNER v1.8.0 — LINK GRABBER INTEGRATION
+27 October 2026 (IST)
+
+Current integration checks:
+- 47 Link Grabber API/logic tests passed, including personalized ZIPs, key/owner
+  isolation, missing/duplicate links, current admin policy and revocation.
+- 30 supplied workflow state/wakeup regression checks passed after adapting the
+  test harness for the new module imports. Core engine/content/workflow files
+  are unchanged from the supplied v1.7.3 extension.
+- The supplied restart-buttons browser regression passed: Trial/Cancel & Refund
+  still start directly after Stop and retain workflow URL recovery.
+- Real Chromium DOM/network/UI capture integration passed using a chrome.* test
+  adapter: button order, navigation from a blank tab, existing-tab reuse, CSP,
+  duplicate/missing errors, live admin settings, owner isolation, revocation and
+  an actual web-panel personalized ZIP download.
+- Production dependencies install successfully from the cloud lockfile.
+
+Limitations:
+The available headless Chromium binary does not include native extension loading.
+Chrome APIs are modeled by the adapter; native install/permission prompts and
+real GoLogin/LinkedIn pages were not exercised here. No reward was visited or
+redeemed and no real trial/cancellation/refund was submitted by these tests.
+Page loading and network delays are additional to the 3-second missing-link scan.
+
+The following is the supplied v1.7.3 test history, retained for reference only.
+It is not a claim that every historical browser suite was rerun for v1.8.0:
+
+PRIVATE WORKFLOW RUNNER v1.7.3 — VALIDATION
+Date: 27 October 2026
+
+CURRENT VALIDATION
+- 30 checkpoint/state tests pass, including all Stop -> selected-workflow
+  combinations, fresh checkpoints, missing-URL recovery and new URL priority.
+- The actual popup is exercised through Stop -> Trial -> Stop -> Trial ->
+  Stop -> Cancel & Refund -> Stop -> Cancel & Refund -> Stop -> Trial.
+- Both buttons are visible and enabled after Stop. Each starts a new run
+  directly and requests popup closure. There is no separate Start control.
+- The legacy stopped message is corrected on reopening, including its log.
+- The previous workflow can recover blank current URL fields without using
+  old action definitions. Other workflows and partial URL pairs are not mixed.
+- A genuinely unconfigured workflow displays a clear error without starting.
+- The full Cancel & Refund browser integration passes with both buttons
+  enabled, its normal URL navigation, checkpoints and same-tab support link.
+- JavaScript syntax, manifest/workflow JSON and ZIP integrity checks pass.
+
+RETAINED VALIDATION FROM v1.7.2
+- Individual continuation supports Confirm, Submit and Redeem 1 month for ₹0.
+- Each label is exercised in a real cross-origin iframe and direct-page
+  layout, with the remaining checkout/QR actions completing in order.
+- Native/ARIA disabled and busy states prevent a click, even with unrelated
+  enabled Submit/Redeem buttons elsewhere. The captured button/dialog takes
+  precedence over document-wide fallbacks.
+- Different allowed labels simultaneously present in the Individual dialog
+  wait for a single clear control. No arbitrary first match is chosen.
+- A parent overlay blocks the embedded button until removed.
+- Each run sends one Individual continuation and one final checkout click.
+- 27 checkpoint/state tests; JavaScript syntax, JSON and ZIP checks.
+
+The earlier regression results below are retained from v1.7.0/v1.7.1 except
+the Individual continuation section, which is exercised for all three labels
+in this version. The full original browser regression is also rerun here.
+
+PASS — Both Start buttons and the new QR display action.
+- Both actual popup buttons start in the same tab from about:blank and an
+  unrelated website, with no extra tab. Their configured URLs open first.
+- Both prefer an existing matching tab, preserve its document/in-memory
+  marker, leave the selected blank tab intact, and request popup closure.
+- State tests cover Chrome/Edge New Tab URLs in addition to about:blank.
+- The outgoing unrelated page cannot act or request unnecessary host access
+  while the starting navigation is pending.
+- Full Step 1 starts from blank, clicks the last checkout control once,
+  survives pause, QR-page refresh and worker recreation, then shows the QR.
+- QR detection waits for navigation and a loaded image, using the specific
+  captured QR attribute/class. It does not click the QR or use generic images.
+- The near-bottom QR is centered within 4 pixels of the viewport midpoint;
+  one small empty spacer permits scrolling past the original page end.
+- Reopening the popup reports QR code ready. No QR image/source is exported.
+- DOM queries and scrolling stop when the QR is visible and the run finishes.
+- Covered, transparent, unloaded and ambiguous QR images cannot finish the
+  display action. A non-interactive image with pointer-events:none is shown
+  successfully without requiring it to be clickable.
+
+PASS — Step 1 Individual continuation variants.
+- Uses Confirm, Submit or Redeem 1 month for ₹0 after Individual.
+- The final Start my free trial remains a separate action after checkout.
+- A real cross-origin iframe fixture and the direct-page layout both proceed
+  through each label and finish the remaining checkout/QR actions in order.
+- Native disabled, ARIA disabled and busy states delay the button until ready.
+- A parent overlay blocks the embedded button until it is removed.
+- A changed data attribute can use the unique accepted text in the Individual
+  dialog. Multiple accepted controls wait for one clear match.
+- Old Start trial and premature final buttons are deliberate decoys and are
+  never clicked. Confirm and the final action each fire once.
+
+PASS — Step 2 integration using the actual settings and popup code.
+- Saves Step 2 URL 1/URL 2 with Step 1 URL blank; separate Start buttons enable
+  correctly and the popup requests closure after a successful Step 2 start.
+- The old default six-pin browser list migrates to 56 unique entries.
+- URL 1 opens in the selected existing tab; the unique captured Premium Career
+  location is chosen among four links with identical text.
+- Optional first-page preparation handles an initially absent tooltip. A
+  tooltip appearing later during load is dismissed before Premium Career.
+- Cancel subscription and both Continue screens run in order.
+- The first Continue button remains enabled and its generated component key
+  changes during loading; the next click waits for actual nearby screen text
+  to change, avoiding an early duplicate click.
+- Confirm cancel is clicked once. Cancellation screen change is observed
+  before URL 2 opens on a different origin.
+- Pause, page refresh and worker recreation at the second URL preserve the
+  action; cancellation is not replayed.
+- Exactly one extension-driven navigation to URL 1 and one to URL 2.
+- Submit and Contact LinkedIn Support run in order. The native target=_blank
+  support link is opened in the same controlled tab. No extra tab is created.
+- Diagnostics identify workflow 2 and redact both private URLs.
+- Both workflows' settings and the new popup were rendered and inspected.
+
+PASS — Popup auto-hide regressions.
+- The actual popup code requests closure after successful Start for both
+  workflows and when starting from a blank, unrelated or matching tab.
+- Browser tests record this request so their regular UI test tab remains
+  available to reopen status. The runner continues independently.
+- The native toolbar action-popup lifecycle was not tested in this runtime.
+
+PASS — 27 Node.js checkpoint/state regression tests.
+- Start uses a selected matching tab without navigation or tab creation.
+- Start navigates an unrelated/blank tab when no matching page is open.
+- A tab is created only if no existing tab is available.
+- Exact starting URL restrictions, checkpoint ownership and persistence.
+- Workflow selection separates Step 1/Step 2 action and URL snapshots.
+- Both Step 2 URLs are required; invalid workflow numbers are rejected.
+- Optional first-page preparation advances only from its configured page.
+- Navigation checkpoints survive worker restart and cannot issue URL 2 twice.
+- Legacy six-pin settings expand while private URLs/custom lists are kept.
+- Pause/resume, unexecuted checkpoint release and new-origin access pauses.
+- An uncertain final submission cannot be automatically retried.
+- The order click stays checkpointed while waiting for QR navigation, even
+  though QR centering is now the final action. Refresh cannot replay it.
+- Workflow revision migration and restart behavior.
+- Worker-cache polling avoids repeated storage reads.
+- Frame binding and main-page fallback remain distinct.
+- Diagnostics redact URLs and entered values.
+- In-flight old polls cannot lose Wake or restart monitoring after Stop.
+
+PASS — Chromium 153 DOM integration against a local simulated website.
+The test runs the shipped background, content, selector and popup/settings
+source through a test bridge for chrome.* APIs.
+- All 14 actions complete in order at a 200 ms stability setting.
+- Start from the actual popup reuses an open tab; no duplicate page is made.
+- Delayed controls, generated IDs, SPA URL changes and full navigation.
+- Captured frame context, cross-origin frames with explicit access, and
+  survey controls rendered directly on the main page.
+- Parent overlays block iframe actions; hidden inputs use visible labels.
+- Duplicate offer buttons and unrelated Zip/reference fields are avoided.
+- Survey, Individual and checkout choices recover after refresh.
+- Worker recreation preserves progress and the same random pincode.
+- Active refresh preserves progress, and unlisted origins require access.
+- Ready controls proceed while an image is still loading.
+- Ambiguous controls wait; missing controls time out without being skipped.
+- A final click is sent once and later refreshes do not repeat it.
+- A stopped runner makes no further DOM queries.
+- Real settings form and redacted diagnostics download work.
+
+PASS — New scroll, same-page and final-action regressions.
+- A checkout control mounted only by scrolling inside a nested scroll pane
+  is found and used after Monthly, without any manual scroll command.
+- Further actions and the distant final button are automatically revealed.
+- Start retains the same document and a test in-memory page marker; it neither
+  creates a tab nor reloads the starting page.
+- A final CTA already present before Continue is not used during the saved
+  checkout transition; the fixture records payment saving before the click.
+- The final CTA fires once, then the QR image is brought into view and both
+  DOM queries and scrolling stop.
+- An invalid final form remains in the waiting phase. Filling its required
+  field permits one submission and does not falsely report a rejected form.
+
+PASS — New captured-tooltip and delayed-final regressions.
+- The captured parent-page tooltip is dismissed once before iframe Next
+  even when its text span is hidden and only an × is visibly rendered.
+- The same control is found inside an actual cross-origin survey iframe.
+- An unrelated parent overlay blocks that child close button. It is not
+  clicked until the unrelated overlay is removed by the test.
+- Tooltip closing animation (500 ms) finishes before Next is clicked.
+- The captured stable class is used without requiring exact visible text;
+  the preparation runs before resolving/scrolling/stabilizing Next.
+- Runs without the captured tooltip still pass the full sequence.
+- A final CTA disabled for about 3 seconds, with native/ARIA/busy and parent
+  fieldset states, is not clicked until those states clear.
+- Extra text in the enabled final CTA does not break its stable attribute.
+- The Continue form may remain visible after saving.
+- If focus disables the final CTA again, the run waits without finishing;
+  re-enabling allows exactly one final click.
+- A button disabled only through a parent fieldset is also detected.
+- An unexecuted final checkpoint can be released and claimed again; an
+  uncertain dispatched final click remains protected from automatic retry.
+
+PASS — Readiness regressions.
+- Moving controls must stop for at least 200 ms before use.
+- A missing Pin code field cannot substitute an unrelated Zip code or the
+  sole reference input. Postal fallback is scoped to the UPI form.
+- Duplicate Pin code labels prevent action.
+
+PASS — JavaScript syntax, manifest/workflow JSON, and ZIP integrity checks.
+
+VALIDATION LIMITS
+The headless Chromium binary here does not load native extensions. Native
+Chrome/Edge installation and permission prompts were not tested; chrome.*
+was simulated in the browser integration tests. The private production site
+was not accessed, and no real subscription/payment was made. The exact live
+website outcome still needs to be checked on the user's PC.
+
+Step 1 reports QR code ready after displaying the loaded image. Step 2 reports
+Final click sent. Neither status confirms payment, subscription activation,
+cancellation or refund approval by the website.
+
+DEVELOPER COMMANDS
+node --test tests/checkpoints.mjs tests/wakeup.mjs
+CHROMIUM_PATH=/path/to/chromium node tests/simulated-browser.cjs
+CHROMIUM_PATH=/path/to/chromium node tests/individual-confirm.cjs
+CHROMIUM_PATH=/path/to/chromium node tests/restart-buttons.cjs
+CHROMIUM_PATH=/path/to/chromium node tests/tabs-and-qr.cjs
+CHROMIUM_PATH=/path/to/chromium node tests/step2-browser.cjs
+CHROMIUM_PATH=/path/to/chromium node tests/scroll-and-start.cjs
+CHROMIUM_PATH=/path/to/chromium node tests/tooltip-and-final.cjs
+CHROMIUM_PATH=/path/to/chromium node tests/readiness-browser.cjs
+CHROMIUM_PATH=/path/to/chromium node tests/speed-browser.cjs
+
+For Chromium with native extension support:
+CHROMIUM_PATH=/path/to/chromium node tests/browser-smoke.cjs
+
+Browser tests require Playwright. They are development-only dependencies;
+no Node.js or Python is needed to install or use the extension.
