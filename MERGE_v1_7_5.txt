@@ -1,0 +1,17 @@
+LINK GRABBER WEB v6.4.2 / COMBINED EXTENSION v1.9.2
+28 October 2026 (IST)
+
+Merged supplied Private Workflow Extension v1.7.5 into the personalized extension.
+engine.js, content.js and workflow.json match the upload exactly. The background
+CHECKOUT_ERROR handler and updated regression tests are merged as well.
+
+Changes include payment/pincode readiness guards, focus-time rechecks, persistent
+payment-error reporting and protection against resubmitting the final click.
+Only local fixtures were used to test these cases. No live subscription/payment
+was submitted, and payment-provider errors are not claimed to be repaired.
+
+Grab Links, notification colors, admin-managed URLs and the existing personal
+capture key/revocation/download/update-notice features remain included.
+
+Deploy the full project, then users Update & download extension, replace their
+installed files and Reload. No environment changes or active-script regeneration.

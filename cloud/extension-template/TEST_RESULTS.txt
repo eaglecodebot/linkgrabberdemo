@@ -1,3 +1,16 @@
+PRIVATE WORKFLOW RUNNER v1.9.2 — v1.7.5 WORKFLOW MERGE
+28 October 2026 (IST)
+
+Current checks: 51 API/logic and 31 workflow state/wakeup checks passed.
+The new checkout-readiness browser suite passes pincode saving, sibling loaders,
+focus rechecks, transient errors and successful QR completion. Persistent errors
+on the payment page or after navigation stop without repeating the final click.
+The integrated capture/personal-download/admin-URL browser suite also passes.
+Native extension APIs are modeled by the test adapter; only fake local payment,
+refund and reward fixtures were exercised. Full notification colors are retained.
+
+Historical verification follows:
+
 PRIVATE WORKFLOW RUNNER v1.9.1 — v1.7.4 WORKFLOW MERGE
 28 October 2026 (IST)
 

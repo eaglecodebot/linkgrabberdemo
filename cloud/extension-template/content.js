@@ -5,11 +5,11 @@
   const send = async data => { const r = await chrome.runtime.sendMessage(data); if (r?.error) throw new Error(r.error); return r; };
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   let enabled = true, looping = false, invalid = false, observer, napTimer, releaseNap, dirty = false, wakeVersion = 0;
-  let stability, packet, lastHint = '', lastMutationWake = 0, mutationTimer, lastActionTarget, search, dispatched, navigationObservation;
+  let stability, packet, lastHint = '', lastMutationWake = 0, mutationTimer, lastActionTarget, search, dispatched, navigationObservation, checkoutFailure;
   const discoveryAt = new Map();
   const dismissals = new Map();
   let dismissalToken = 0;
-  function stop() { enabled = false; observer?.disconnect(); observer = null; clearTimeout(mutationTimer); mutationTimer = null; stability = null; search = null; lastActionTarget = null; if (releaseNap) releaseNap(); }
+  function stop() { enabled = false; observer?.disconnect(); observer = null; clearTimeout(mutationTimer); mutationTimer = null; stability = null; search = null; lastActionTarget = null; checkoutFailure = null; if (releaseNap) releaseNap(); }
   function wake() { if (invalid) return; wakeVersion++; enabled = true; dirty = true; if (releaseNap) releaseNap(); loop(); }
   function monitor() {
     if (observer || document.readyState === 'loading') return;
@@ -71,6 +71,16 @@
     if (!enabled) return 0;
     const task = packet.task;
     if (!task) { stability = null; if (packet.reason) await hint(packet.reason); return 900; }
+    const paymentResult = task.step.noRepeat && task.phase !== 'waiting' && task.next?.checkoutGuard
+      ? task.next : task.step.action === 'reveal' && task.step.checkoutGuard ? task.step : null;
+    if (paymentResult && E.checkoutState(paymentResult).error) {
+      const key = `${task.runId}:${task.index}`;
+      if (checkoutFailure?.key !== key) checkoutFailure = {key, at: Date.now()};
+      if (Date.now() - checkoutFailure.at >= 800) await send({type:'CHECKOUT_ERROR',runId:task.runId,index:task.index,readyState:document.readyState});
+      else await hint('The payment page is reporting an error. Checking it before proceeding.');
+      return 200;
+    }
+    checkoutFailure = null;
     if (task.phase !== 'waiting') {
       if (task.step.final) return 200;
       let currentDone = E.postcondition(task.step, task);

@@ -57,13 +57,44 @@
       return /postal|pin\s*code|pincode|zip\b/i.test([el.name, el.id, el.placeholder, el.getAttribute('aria-label'), el.autocomplete === 'postal-code' ? 'postal' : '', label, labelled].join(' '));
     });
   }
+  function checkoutState(step = {}) {
+    const {scopes} = targetRoots(step); if (!scopes.length) return {busy: false, error: false};
+    // Restrict this to the payment area. A chat-widget spinner or alert must
+    // not block checkout, and no page text is returned or stored.
+    let areas = step.checkoutScope === 'upi'
+      ? [...new Set(query('[data-test-save-upi-button]', scopes).filter(canReveal).map(el => el.closest('form, [data-test-upi-form], .default-accordion-item') || el.parentElement).filter(Boolean))]
+      : query('.checkout-container, [data-test-checkout-container]', scopes).filter(canReveal);
+    if (!areas.length) {
+      const anchors = query('[data-test-save-upi-button], [data-test-place-order-btn], img[data-test-upi-processing-upi-qr-code-image]', scopes).filter(canReveal);
+      areas = [...new Set(anchors.map(el => el.closest('main, [role="main"], form') || el.parentElement).filter(Boolean))];
+    }
+    if (!areas.length) areas = query('main, [role="main"]', scopes).filter(canReveal);
+    if (!areas.length) return {busy: false, error: false};
+    const shown = el => {
+      if (!visible(el) || !canReveal(el)) return false;
+      for (let node=el;node;node=parent(node)) if (Number(node.ownerDocument.defaultView.getComputedStyle(node).opacity)===0) return false;
+      return true;
+    };
+    const busySelector = '[aria-busy="true"], [role="progressbar"]:not([aria-valuenow]), progress:not([value]), .artdeco-loader';
+    const busy = areas.some(el => el.matches(busySelector) && shown(el)) || query(busySelector, areas).some(shown);
+    const alerts = query('[role="alert"], [aria-invalid="true"], .artdeco-inline-feedback--error, [data-test-payment-error], [data-test-checkout-error]', areas).filter(shown);
+    const error = alerts.some(el => el.matches('[aria-invalid="true"]') || Boolean(normalize(el.innerText || el.textContent)) &&
+      (el.matches('.artdeco-inline-feedback--error, [data-test-payment-error], [data-test-checkout-error]') ||
+      /(?:payment|transaction|checkout|upi|purchase|order|billing|bank|pin\s*code).*(?:error|fail|declin|unable|cannot|couldn.t|could not|not available|not complete|invalid)|(?:unable|cannot|couldn.t|could not|failed).*(?:payment|transaction|checkout|purchase|order)|something went wrong|try again/i.test(normalize(el.innerText || el.textContent))));
+    return {busy, error};
+  }
   function resolve(step, task = {}, {includeUnready = false} = {}) {
     try {
       if (!step) return {element: null, reason: ''};
       if (step.afterNavigation && !task.navigationChanged) return {element: null, blocked: true, reason: 'Waiting for the QR page after the last click.'};
       const {scopes, reason} = targetRoots(step);
       if (!scopes.length) return {element: null, reason};
-      if (task.transitionAt && Date.now() - task.transitionAt < (step.afterPreviousMilliseconds || 0)) return {element: null, blocked: true, reason: 'Waiting for the checkout to settle after Continue.'};
+      if (task.transitionAt && Date.now() - task.transitionAt < (step.afterPreviousMilliseconds || 0)) return {element: null, blocked: true, reason: step.settleMessage || `Waiting for the page to settle before ${step.title}.`};
+      if (step.checkoutGuard && !includeUnready) {
+        const state = checkoutState(step);
+        if (state.error) return {element: null, blocked: true, reason: 'The checkout shows an error or invalid field. Check the payment page.'};
+        if (state.busy) return {element: null, blocked: true, reason: 'Waiting for checkout to finish saving or processing.'};
+      }
       for (const css of step.waitForHidden || []) {
         if (query(css, scopes).some(visible)) return {element: null, blocked: true, reason: 'Waiting for the payment details to finish saving before the final action.'};
       }
@@ -213,6 +244,8 @@
   }
   function perform(step, task, el) {
     if (step.action === 'reveal') { centerOnScreen(el); return postcondition(step, task); }
+    const checkoutBlocked = () => {if (!step.checkoutGuard) return false;const state = checkoutState(step);return state.busy || state.error;};
+    if (checkoutBlocked()) return false;
     if (!ready(el) || !unobstructed(el)) return false;
     const blocked = submitBlock(el); if (blocked) throw new Error(blocked);
     if (step.action !== 'click' && postcondition(step, task)) return true;
@@ -232,7 +265,7 @@
       el.focus?.({preventScroll: true});
       // Focus handlers can synchronously disable or replace a checkout CTA.
       // Return false only before dispatching anything, so the caller can wait.
-      if (!ready(el) || !unobstructed(el) || submitBlock(el)) return false;
+      if (!ready(el) || !unobstructed(el) || submitBlock(el) || checkoutBlocked()) return false;
       const target = step.sameTab && el.matches('a') ? el.getAttribute('target') : undefined;
       if (target !== undefined) el.setAttribute('target', '_self');
       try {el.click();} finally {if (target !== undefined) {if (target === null) el.removeAttribute('target');else el.setAttribute('target', target);}}
@@ -301,5 +334,5 @@
     let hash = 2166136261;for (let i=0;i<value.length;i++) hash = Math.imul(hash ^ value.charCodeAt(i), 16777619);
     return String(hash >>> 0);
   }
-  globalThis.PrivateWorkflow = {normalize, query, visible, proxy, ready, resolve, postcondition, scrollIntoView, centerOnScreen, revealVisible, unobstructed, perform, inspectFrame, childPoint, pointFor, seek, submitBlock, transitionSignature, metrics};
+  globalThis.PrivateWorkflow = {normalize, query, visible, proxy, ready, resolve, postcondition, scrollIntoView, centerOnScreen, revealVisible, unobstructed, perform, inspectFrame, childPoint, pointFor, seek, submitBlock, transitionSignature, checkoutState, metrics};
 })();

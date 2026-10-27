@@ -1,7 +1,17 @@
-LINK GRABBER WEB v6.4.1
+LINK GRABBER WEB v6.4.2
 ======================
 
-WORKFLOW v1.7.4 MERGE / COMBINED EXTENSION v1.9.1
+WORKFLOW v1.7.5 MERGE / COMBINED EXTENSION v1.9.2
+Merged the supplied v1.7.5 workflow engine, content logic and action definitions.
+The workflow waits for pincode/payment saving and busy states to clear, rechecks
+readiness after focus and observes the QR result. A persistent payment error
+stops the workflow without resubmitting the final checkout click.
+Grab Links, full notification colors, admin-managed URLs, personal downloads and
+once-per-release notices remain included. Deploy all files, then users download
+v1.9.2, replace their installed extension files and press Reload.
+No env changes or active console-script regeneration required.
+
+PREVIOUS WORKFLOW v1.7.4 MERGE / COMBINED EXTENSION v1.9.1
 The supplied Trial/Cancel & Refund update is merged into the integrated template.
 Individual continuation now uses the captured button/dialog regardless of label,
 including Start free trial or unknown wording. It waits for a single ready match

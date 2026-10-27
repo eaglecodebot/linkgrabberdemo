@@ -225,6 +225,19 @@ test('submission stays checkpointed until the QR page; reveal cannot repeat the 
   await h.request('REVEALED',{},qrPage);assert.equal(h.data.run.status,'finished');
   assert.match(h.data.run.message,/QR code loaded/);
 });
+test('a reported checkout error stops the current payment observation without enabling a repeat', async () => {
+  const h=harness();await h.send('START');
+  assert.equal((await h.request('CHECKOUT_ERROR')).ok,false);
+  h.data.run.index=defaults.steps.findIndex(s=>s.id==='finish');h.restart();
+  assert.equal((await h.request('CHECKOUT_ERROR')).ok,false,'an unsubmitted checkout is not a payment result');
+  const {token}=await h.request('CLAIM');await h.request('RESULT',{token});
+  assert.equal((await h.request('CHECKOUT_ERROR',{}, {...h.page,tab:{id:999}})).ok,false);
+  assert.equal((await h.request('CHECKOUT_ERROR',{}, {...h.page,frameId:5})).ok,false);
+  assert.equal((await h.request('CHECKOUT_ERROR',{errorText:'PRIVATE_SENTINEL'})).ok,true);
+  assert.equal(h.data.run.status,'error');assert.equal(h.data.run.siteError,'checkout');
+  assert.ok(!JSON.stringify(h.data.run).includes('PRIVATE_SENTINEL'));
+  assert.match((await h.send('RETRY')).error,/final click may already have been sent/);
+});
 test('only the current action owner can request its configured tooltip preparation', async () => {
   const h=harness();await h.send('START');h.data.run.index=defaults.steps.findIndex(s=>s.id==='next');h.restart();
   assert.equal((await h.request('PREPARE_BEFORE',{}, {...h.page,tab:{id:999}})).ready,false);

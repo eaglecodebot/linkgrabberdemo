@@ -302,6 +302,10 @@
       "id": "continue",
       "title": "Continue with UPI",
       "action": "click",
+      "checkoutGuard": true,
+      "checkoutScope": "upi",
+      "afterPreviousMilliseconds": 800,
+      "settleMessage": "Waiting briefly for pincode validation before Continue.",
       "requires": [
         "monthly",
         "upi",
@@ -327,14 +331,17 @@
         }
       ],
       "context": [],
-      "afterPreviousMilliseconds": 3000,
-      "enabledMilliseconds": 500
+      "checkoutGuard": true,
+      "afterPreviousMilliseconds": 4000,
+      "settleMessage": "Waiting for the saved payment details before the final checkout click.",
+      "enabledMilliseconds": 1000
     },
     {
       "id": "show-qr",
       "title": "Bring the generated UPI QR code to the middle of the screen",
       "action": "reveal",
       "final": true,
+      "checkoutGuard": true,
       "afterNavigation": true,
       "context": [],
       "locators": [
@@ -347,7 +354,7 @@
       ]
     }
   ],
-  "workflowRevision": 11,
+  "workflowRevision": 12,
   "step2Steps": [
     {
       "id": "dismiss-tooltip",

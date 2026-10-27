@@ -343,6 +343,15 @@ async function handle(msg, sender) {
       await save(logRun(run, 'Confirm cancel transition observed. Opening Step 2 URL 2 in the same tab.'));
       await chrome.tabs.update(run.tabId, {url, active: true});return {ok: true};
     }
+    case 'CHECKOUT_ERROR': {
+      if (!belongs(run,msg,sender) || run.status !== 'running' || !await actor(run,sender,msg.readyState)) return {ok:false};
+      const current=run.config.steps[run.index],next=run.config.steps[run.index+1];
+      const target=current.noRepeat && run.phase !== 'waiting' && next?.checkoutGuard ? next : current.action === 'reveal' && current.checkoutGuard ? current : null;
+      if (!target || !actionPlan(run,sender,target)) return {ok:false};
+      run.status='error';run.siteError='checkout';
+      await save(logRun(run,'The website reported a checkout/payment error. Automation stopped without repeating the last click. Check the message on the payment page.'));
+      return {ok:true};
+    }
     case 'REVEALED': {
       if (!belongs(run, msg, sender) || run.status !== 'running' || run.phase !== 'waiting') return {ok: false};
       const step = run.config.steps[run.index];

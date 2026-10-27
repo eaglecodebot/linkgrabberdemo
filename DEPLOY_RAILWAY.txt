@@ -1,3 +1,8 @@
+WORKFLOW UPDATE v6.4.2 / COMBINED EXTENSION v1.9.2
+Deploy all updated files. Users get the existing per-release update notice and
+should download their personal ZIP, replace installed files and press Reload.
+No new env variables. Keep MongoDB and SCRIPT_ENCRYPTION_KEY unchanged.
+
 WORKFLOW MERGE/COLOR UPDATE v6.4.1
 Upload all updated project files and redeploy Railway. Hard refresh the panel.
 Users download personalized extension v1.9.1 via Update & download extension,

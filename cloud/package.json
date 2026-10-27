@@ -5,7 +5,7 @@
     "mongodb": "7.7.0"
   },
   "name": "link-grabber-cloud",
-  "version": "6.4.1",
+  "version": "6.4.2",
   "private": true,
   "type": "module",
   "scripts": {

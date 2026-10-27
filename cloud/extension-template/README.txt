@@ -1,4 +1,4 @@
-PRIVATE WORKFLOW RUNNER v1.9.1 — PERSONAL LINK GRABBER
+PRIVATE WORKFLOW RUNNER v1.9.2 — PERSONAL LINK GRABBER
 Buttons: Trial | Grab Links | Cancel & Refund.
 See CAPTURE_SETUP.txt in the personalized download for capture installation.
 The source template is personalized by the Link Grabber web panel when each user
