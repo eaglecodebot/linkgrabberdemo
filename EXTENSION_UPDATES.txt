@@ -1,21 +1,30 @@
 EXTENSION CODE UPDATES AND WORKFLOW URL SETTINGS
-Link Grabber Web v6.4.0 / Private Workflow Runner v1.9.0
-28 October 2026 (IST)
+Link Grabber Web v6.5.0 / Private Workflow Runner v1.10.0
+30 October 2026 (IST)
 
-ADMIN: SET THE THREE WORKFLOW URLS
+ADMIN: SET WORKFLOW URLS AND OPTIONAL TRIAL ALTERNATES
 1. Deploy this full project to Railway and hard-refresh your panel (Ctrl+F5).
 2. Log in as admin. Find Extension workflow URLs - all users.
 3. Enter:
-   Trial - starting URL: startUrl
+   Trial - primary starting URL: startUrl
+   Trial - alternate starting URLs: trialAlternateUrls (one per line; optional)
    Cancel & Refund - URL 1: step2StartUrl
    Cancel & Refund - URL 2: step2SecondUrl
 4. Click Save workflow URLs.
-5. Users download/install their personalized v1.9.0 extension once.
+5. Users download/install their personalized v1.10.0 extension once.
 
-New ZIPs contain these URLs. Installed v1.9+ extensions refresh them when starting
+New ZIPs contain these URLs. Installed v1.10+ extensions refresh them when starting
 Trial or Cancel & Refund, so URL-only changes need no new extension download.
 A workflow already running keeps its initial URL snapshot until it finishes.
-Users cannot override these three values in their extension Settings. Other
+Trial alternates are exact entry pages, not a sequence of navigation actions.
+An open primary/alternate tab is reused. Otherwise only the primary is opened.
+A listed redirect still needs the first captured control to be uniquely ready.
+Up to 50 full HTTP(S) alternate URLs; no credentials, spaces or wildcards.
+Empty lines/duplicates/the exact primary are removed. Clear the list to disable
+alternates. Old local or historical lists cannot override current admin values.
+Cancel & Refund continues to use only its own two URLs.
+The alternate list is hidden in personalized extension Settings. Users cannot
+override any of these URL values there. Other
 preferences remain local. Blank URLs leave the respective workflow unconfigured.
 Capture URL/services are configured separately in the existing capture form.
 The managed workflow URL endpoint still works if capture services are paused.
@@ -32,7 +41,7 @@ The shared integrated extension lives here in your GitHub project:
    unintegrated Trial/Cancel-only extension. Supply the newer extension for merging
    if its source changes are not already integrated with Grab Links.
 2. Increase the version in cloud/extension-template/manifest.json, for example:
-   "version": "1.9.1"
+   "version": "1.10.1"
    Use a Chrome-compatible numeric extension version.
 3. Upload/commit the changed files to GitHub and redeploy Railway.
 4. No extra env variable, database reset or script regeneration is required.
@@ -72,6 +81,6 @@ This is a download-and-reload update. The website cannot silently overwrite the
 installed extension folder. Download tracking does not claim that every PC or
 browser profile has actually installed the files. Reload each installed profile
 that uses the folder. Keeping the same installed folder retains local timing and
-pincode preferences; the three URLs remain managed by the admin.
+pincode preferences; all workflow URLs remain managed by the admin.
 
 Keep your ZIP private because it contains your personal capture key.

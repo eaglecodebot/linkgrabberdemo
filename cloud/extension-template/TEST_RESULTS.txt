@@ -1,3 +1,35 @@
+VERIFICATION - LINK GRABBER WEB v6.5.0 / EXTENSION v1.10.0
+30 October 2026 (IST)
+
+52 API/logic checks and 39 workflow state/wakeup checks passed.
+- Admin-only writes, malformed alternate rejection without overwriting data,
+  legacy settings without migration, exact destination preservation, private ZIPs
+  with alternate host access, live updates and clearing, owner/key isolation.
+- Real Chromium web panel: admin alternate field saves and survives reload;
+  hidden for users; forged user writes rejected. Existing capture, UI, grouped
+  TXT/Excel exports, revocation and notification suites pass.
+- Integrated extension browser: current admin alternates override stale local
+  settings, cannot be changed with SAVE_SETTINGS, are hidden in Settings, and
+  other preferences can still save. A matching alternate preserves its document;
+  clearing the list causes the next start to use the primary. Personalized ZIP
+  downloads and once-per-release update tracking pass.
+- Supplied alternate browser suite: HTTP, cross-origin and SPA redirects reach
+  explicit alternates and wait for the first control. Full redirected Trial
+  reaches the fixture QR with one final click. Selected/background alternate
+  tabs are preserved; an unlisted child page cannot start the workflow.
+- Full Cancel & Refund browser regression also passed: URL 1, confirmation,
+  URL 2, navigation, pause/refresh/worker recovery and redacted diagnostics.
+- engine.js/content.js/workflow.json match supplied v1.7.6 exactly. Both grabber
+  notification color files are unchanged from the last delivered release.
+- A pre-existing randomized password test assertion was corrected: valid hex
+  hashes can begin with a. Production password hashing is unchanged.
+
+Native Chrome/GoLogin extension APIs use a test adapter here; DOM/HTTP and page
+navigation use real Chromium. Native installation and production sites were not
+tested. No live trial, payment, cancellation, refund or voucher redemption ran.
+
+Historical verification follows:
+
 PRIVATE WORKFLOW RUNNER v1.9.2 — v1.7.5 WORKFLOW MERGE
 28 October 2026 (IST)
 

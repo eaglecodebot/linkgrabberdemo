@@ -1,0 +1,18 @@
+LINK GRABBER WEB v6.5.0 / COMBINED EXTENSION v1.10.0
+30 October 2026 (IST)
+
+Merged supplied Private Workflow Extension v1.7.6 into the combined extension.
+engine.js, content.js and workflow.json match the upload exactly. The starting
+page, permission, redirect and diagnostics changes in shared.js/background.js
+are merged with Grab Links and the admin-managed settings integration.
+
+The admin panel adds Trial alternate starting URLs (one URL per line, up to 50).
+Only admins can write them. Personalized extension Settings hides that field;
+the worker rejects changes and ignores old browser lists. Fresh starts fetch
+current admin values. Clearing alternates removes them from subsequent runs.
+
+Personal ZIPs include the list and its host permissions. Existing release
+tracking sends one panel notice per account. Download/reload v1.10.0 once;
+future URL-only changes apply on the next run without another download.
+Capture keys, active Console scripts, link history, exports and notification
+colors remain intact. No environment changes or database migration required.

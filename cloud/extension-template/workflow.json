@@ -1,5 +1,6 @@
 {
   "startUrl": "",
+  "trialAlternateUrls": [],
   "step2StartUrl": "",
   "step2SecondUrl": "",
   "additionalOrigins": [],
@@ -354,7 +355,7 @@
       ]
     }
   ],
-  "workflowRevision": 12,
+  "workflowRevision": 13,
   "step2Steps": [
     {
       "id": "dismiss-tooltip",

@@ -25,5 +25,5 @@ test('short passwords work for initial admin, user creation, changes and admin r
 
 test('empty/oversized passwords stay invalid and hashing preserves exact short passwords',async()=>{
  for(const password of ['',null,undefined,'x'.repeat(129)])await assert.rejects(passwordHash(password),/password/);
- const hash=await passwordHash('a');assert(!hash.includes(':a'));assert.equal(await verifyPassword('a',hash),true);assert.equal(await verifyPassword('A',hash),false);
+ const hash=await passwordHash('a');assert.match(hash,/^[a-f0-9]{32}:[a-f0-9]{128}$/);assert.equal(await verifyPassword('a',hash),true);assert.equal(await verifyPassword('A',hash),false);
 });

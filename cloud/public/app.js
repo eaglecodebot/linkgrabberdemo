@@ -175,11 +175,12 @@ if(token)void restoreSession();else signOut();
 
 function renderWorkflowSettings(values){
  for(const [field,id] of [['startUrl','workflow-start-url'],['step2StartUrl','workflow-step2-start-url'],['step2SecondUrl','workflow-step2-second-url']])$(id).value=values[field]||'';
+ $('workflow-trial-alternates').value=(values.trialAlternateUrls||[]).join('\n');
 }
 $('workflow-settings-form').onsubmit=run(async()=>{
- await api('workflow-settings',{startUrl:$('workflow-start-url').value,step2StartUrl:$('workflow-step2-start-url').value,step2SecondUrl:$('workflow-step2-second-url').value});
+ await api('workflow-settings',{startUrl:$('workflow-start-url').value,step2StartUrl:$('workflow-step2-start-url').value,step2SecondUrl:$('workflow-step2-second-url').value,trialAlternateUrls:$('workflow-trial-alternates').value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean)});
  renderWorkflowSettings((await api('workflow-settings')).workflowUrls);
- note('Workflow URLs saved. Installed v1.9+ extensions use them on their next workflow start.','success');
+ note('Workflow URLs saved. Extensions use them on their next workflow start. Trial alternates require extension v1.10+.','success');
 });
 function renderExtensionRelease(){
  const state=extensionState;$('extension-update').hidden=!state||state.downloaded;

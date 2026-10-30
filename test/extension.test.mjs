@@ -1,5 +1,6 @@
 import {loadExtensionRelease} from '../cloud/extension-release.mjs';
 import {workflowConfig} from '../cloud/extension-template/shared.js';
+import {cleanWorkflowSettings,workflowSettings} from '../cloud/workflow-settings.mjs';
 import {mkdtemp,writeFile,mkdir,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -25,6 +26,12 @@ async function fixture(){
   return {repo,raw,api,admin,alice:users[0],bob:users[1],connection,close:async()=>{server.closeAllConnections();await new Promise(r=>server.close(r));}};
 }
 const packet=key=>({version:6,captureKey:key,batchId:crypto.randomUUID(),sourceUrl:'https://source.example/perks',links:[{url:'https://youtube.com/premium?acc=EXT-EXAMPLE%2Bkeep'},{url:'https://checkout.headspace.com/checkout?voucherCode=LINKEDIN-EXAMPLE'}]});
+test('legacy workflow settings need no migration; alternate list removes empty/duplicate primary entries and preserves complete URLs',async()=>{
+  const legacy={startUrl:'https://trial.example/entry',step2StartUrl:'',step2SecondUrl:''};
+  assert.deepEqual(await workflowSettings({globalWorkflowSettings:async()=>({value:legacy})}),{...legacy,trialAlternateUrls:[]});
+  const alternate='https://alternate.example/landing?offer=A%2BB&next=%2Fhome#panel';
+  assert.deepEqual(cleanWorkflowSettings({...legacy,trialAlternateUrls:['',legacy.startUrl,' '+alternate+' ',alternate]}),{...legacy,trialAlternateUrls:[alternate]});
+});
 test('personalized ZIPs use the signed-in owner and current permanent key; common workflows stay bundled',async()=>{
   const f=await fixture();try{
     assert.equal((await f.raw('extension-download',f.alice.token)).status,409);
@@ -32,7 +39,7 @@ test('personalized ZIPs use the signed-in owner and current permanent key; commo
     const a=await f.connection(f.alice.token),b=await f.connection(f.bob.token);
     assert.equal(a.data.username,'alice');assert.equal(b.data.username,'bob');assert.notEqual(a.data.captureKey,b.data.captureKey);assert(first.script.includes(a.data.captureKey));
     assert.equal((await f.api('capture-script',f.alice.token)).script,first.script);
-    const manifest=JSON.parse(await a.zip.file('manifest.json').async('string'));assert.equal(manifest.version,'1.9.2');assert.deepEqual(manifest.host_permissions,['http://127.0.0.1/*','https://source.example/*']);
+    const manifest=JSON.parse(await a.zip.file('manifest.json').async('string'));assert.equal(manifest.version,'1.10.0');assert.deepEqual(manifest.host_permissions,['http://127.0.0.1/*','https://source.example/*']);
     const popup=await a.zip.file('popup.html').async('string');assert(popup.indexOf('id="start"')<popup.indexOf('id="grab-links"'));assert(popup.indexOf('id="grab-links"')<popup.indexOf('id="start2"'));
     for(const file of ['engine.js','content.js','workflow.json','options.html','grabber.js','grabber-page.js','grabber-decode.js'])assert(a.zip.file(file));
     assert.equal(await a.zip.file('engine.js').async('string'),await b.zip.file('engine.js').async('string'));
@@ -68,21 +75,24 @@ test('revoked/password-reset extension connections fail; download never silently
   }finally{await f.close();}
 });
 
-test('only admins manage the three exact workflow URLs; ZIPs include them and live settings work while capture is paused',async()=>{
+test('only admins manage workflow URLs and Trial alternates; ZIPs include them and live settings work while capture is paused',async()=>{
   const f=await fixture();try{
-    const urls={startUrl:'https://trial.example/start?offer=TEST%2Bkeep',step2StartUrl:'https://cancel.example/subscriptions',step2SecondUrl:'https://refund.example/request'};
+    const urls={startUrl:'https://trial.example/start?offer=TEST%2Bkeep',step2StartUrl:'https://cancel.example/subscriptions',step2SecondUrl:'https://refund.example/request',trialAlternateUrls:['https://alternate.example/entry?offer=A%2Bkeep','https://trial.example/variant']};
     assert.equal((await f.raw('workflow-settings',f.alice.token,urls)).status,403);
     for(const value of ['javascript:alert(1)','https://u:p@site.example/','https://site.example/*','https://site.example/a b'])assert.equal((await f.raw('workflow-settings',f.admin.token,{...urls,startUrl:value})).status,400);
-    await f.api('workflow-settings',f.admin.token,urls);assert.deepEqual((await f.api('workflow-settings',f.alice.token)).workflowUrls,urls);
+    await f.api('workflow-settings',f.admin.token,urls);
+    for(const trialAlternateUrls of ['https://alternate.example/',[42],['javascript:alert(1)'],['https://u:p@alternate.example/'],['https://alternate.example/*'],['https://alternate.example/a b'],Array(51).fill('https://alternate.example/')]){assert.equal((await f.raw('workflow-settings',f.admin.token,{...urls,trialAlternateUrls})).status,400);}
+    assert.deepEqual((await f.api('workflow-settings',f.admin.token)).workflowUrls,urls,'invalid alternate input does not overwrite saved values');
+    assert.deepEqual((await f.api('workflow-settings',f.alice.token)).workflowUrls,urls);
     await f.api('capture-script/regenerate',f.alice.token,{});const {data,zip}=await f.connection(f.alice.token);
-    const workflow=JSON.parse(await zip.file('workflow.json').async('string'));assert.equal(workflow.managedWorkflowUrls,true);for(const key of Object.keys(urls))assert.equal(workflow[key],urls[key]);
-    const manifest=JSON.parse(await zip.file('manifest.json').async('string'));for(const host of ['trial','cancel','refund'])assert(manifest.host_permissions.includes('https://'+host+'.example/*'));
+    const workflow=JSON.parse(await zip.file('workflow.json').async('string'));assert.equal(workflow.managedWorkflowUrls,true);for(const key of Object.keys(urls))assert.deepEqual(workflow[key],urls[key]);
+    const manifest=JSON.parse(await zip.file('manifest.json').async('string'));for(const host of ['trial','cancel','refund','alternate'])assert(manifest.host_permissions.includes('https://'+host+'.example/*'));
     const before=(await f.api('extension-release',f.alice.token)).release.id;
     await f.api('settings',f.admin.token,{pagePattern:'https://source.example/perks*',enabledServices:[]});
-    const changed={...urls,startUrl:'https://trial.example/new'};await f.api('workflow-settings',f.admin.token,changed);
+    const changed={...urls,startUrl:'https://trial.example/new',trialAlternateUrls:['https://new-alternate.example/landing']};await f.api('workflow-settings',f.admin.token,changed);
     assert.deepEqual((await f.api('extension/workflow','',{version:6,captureKey:data.captureKey})).workflowUrls,changed);
     assert.equal((await f.api('extension-release',f.alice.token)).release.id,before,'URL changes are data, not an extension-code release');
-    const cleared={startUrl:'',step2StartUrl:'',step2SecondUrl:''};await f.api('workflow-settings',f.admin.token,cleared);assert.deepEqual((await f.api('extension/workflow','',{version:6,captureKey:data.captureKey})).workflowUrls,cleared);
+    const cleared={startUrl:'',step2StartUrl:'',step2SecondUrl:'',trialAlternateUrls:[]};await f.api('workflow-settings',f.admin.token,cleared);assert.deepEqual((await f.api('extension/workflow','',{version:6,captureKey:data.captureKey})).workflowUrls,cleared);
     assert.equal(workflowConfig({...workflow,...cleared},1,{config:{workflowNumber:1,startUrl:urls.startUrl}}).startUrl,'','cleared admin URLs never recover an old local URL');
   }finally{await f.close();}
 });

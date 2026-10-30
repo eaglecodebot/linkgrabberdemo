@@ -1,3 +1,16 @@
+TRIAL ALTERNATE URL UPDATE v6.5.0 / EXTENSION v1.10.0
+30 October 2026 (IST)
+Replace all project files, redeploy Railway, and hard refresh the panel.
+Admin > Extension workflow URLs > Trial alternate starting URLs: one URL per line.
+Save workflow URLs. The optional list applies to all users, up to 50 exact pages.
+Only admins can configure it; personalized extension Settings hides this list.
+Users download the new personal ZIP, replace the installed files, then Reload.
+Once v1.10.0 is installed, later alternate edits apply on the next fresh Trial.
+No new environment variables, MongoDB migration or script regeneration needed.
+Keep MongoDB and SCRIPT_ENCRYPTION_KEY unchanged.
+
+Previous deployment notes:
+
 WORKFLOW UPDATE v6.4.2 / COMBINED EXTENSION v1.9.2
 Deploy all updated files. Users get the existing per-release update notice and
 should download their personal ZIP, replace installed files and press Reload.

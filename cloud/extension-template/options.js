@@ -1,11 +1,16 @@
 const $ = id => document.getElementById(id);
+let managedUrls = false;
 const fields = ['startUrl', 'step2StartUrl', 'step2SecondUrl', 'stepTimeoutSeconds', 'settleMilliseconds', 'pincodeMode', 'pincode', 'pincodeSelector'];
 async function send(type, payload = {}) { const r = await chrome.runtime.sendMessage({type, ...payload}); if (r?.error) throw new Error(r.error); return r; }
 function error(message) { $('error').textContent = message; $('error').hidden = !message; }
 function fill(config) {
-  $('managed-urls').hidden=!config.managedWorkflowUrls;
+  managedUrls=!!config.managedWorkflowUrls;
+  $('managed-urls').hidden=!managedUrls;
+  $('trial-alternates-setup').hidden=managedUrls;
+  $('trialAlternateUrls').readOnly=managedUrls;
   for(const field of ['startUrl','step2StartUrl','step2SecondUrl'])$(field).readOnly=!!config.managedWorkflowUrls;
   for (const field of fields) $(field).value = config[field] ?? '';
+  $('trialAlternateUrls').value = (config.trialAlternateUrls || []).join('\n');
   $('additionalOrigins').value = config.additionalOrigins.join('\n');
   $('delhiPincodes').value = config.delhiPincodes.join(', ');
   $('steps').replaceChildren(...config.steps.map(s => { const li = document.createElement('li'); li.textContent = s.title; return li; }));
@@ -18,7 +23,9 @@ $('form').addEventListener('submit', async e => {
     const settings = Object.fromEntries(fields.map(field => [field, $(field).value.trim()]));
     settings.stepTimeoutSeconds = Number(settings.stepTimeoutSeconds); settings.settleMilliseconds = Number(settings.settleMilliseconds);
     settings.additionalOrigins = $('additionalOrigins').value.split(/\s+/).filter(Boolean);
+    settings.trialAlternateUrls = $('trialAlternateUrls').value.split(/\s+/).filter(Boolean);
     settings.delhiPincodes = $('delhiPincodes').value.split(/[\s,]+/).filter(Boolean);
+    if(managedUrls)for(const field of ['startUrl','step2StartUrl','step2SecondUrl','trialAlternateUrls'])delete settings[field];
     const result = await send('SAVE_SETTINGS', {settings}); fill(result.config); $('saved').textContent = 'Saved. Open the extension and choose Trial, Grab Links or Cancel & Refund.';
   } catch (e) { error(e.message); }
 });

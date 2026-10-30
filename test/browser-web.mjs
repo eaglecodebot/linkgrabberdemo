@@ -98,12 +98,16 @@ try{
  const bob=(await api('admin/users',admin.token)).users.find(u=>u.username==='bob');await adminPanel.select('#history-user',bob.id);await adminPanel.waitForFunction(()=>document.querySelector('#count').textContent.startsWith('0 '));
  // Admin-only workflow URL form persists independently of capture policy.
  assert.equal(await panel.$eval('#admin',n=>n.hidden),true);
- const adminWorkflowUrls={startUrl:sourceOrigin+'/trial',step2StartUrl:sourceOrigin+'/subscriptions',step2SecondUrl:sourceOrigin+'/refund'};
+ const adminWorkflowUrls={startUrl:sourceOrigin+'/trial',step2StartUrl:sourceOrigin+'/subscriptions',step2SecondUrl:sourceOrigin+'/refund',trialAlternateUrls:[sourceOrigin+'/trial-alternate?offer=1',sourceOrigin+'/trial-redirect']};
  for(const [key,id] of [['startUrl','workflow-start-url'],['step2StartUrl','workflow-step2-start-url'],['step2SecondUrl','workflow-step2-second-url']])await adminPanel.$eval('#'+id,(n,value)=>{n.value=value;},adminWorkflowUrls[key]);
+ await adminPanel.$eval('#workflow-trial-alternates',(n,values)=>{n.value=values.join('\n');},adminWorkflowUrls.trialAlternateUrls);
  await adminPanel.click('#workflow-settings-form button');await wait(async()=>JSON.stringify((await api('workflow-settings',admin.token)).workflowUrls)===JSON.stringify(adminWorkflowUrls),'admin workflow URL save');
  await adminPanel.reload();await adminPanel.waitForFunction(()=>document.querySelector('#workflow-start-url').value.endsWith('/trial'));
  for(const [key,id] of [['startUrl','workflow-start-url'],['step2StartUrl','workflow-step2-start-url'],['step2SecondUrl','workflow-step2-second-url']])assert.equal(await adminPanel.$eval('#'+id,n=>n.value),adminWorkflowUrls[key]);
- report.adminWorkflowUrlForm='PASS';
+ assert.equal(await adminPanel.$eval('#workflow-trial-alternates',n=>n.value),adminWorkflowUrls.trialAlternateUrls.join('\n'));
+ assert.equal(await panel.$eval('#workflow-trial-alternates',n=>!!n.closest('[hidden]')),true);
+ const alternateForbidden=await panel.evaluate(async()=>{const r=await fetch('/api/workflow-settings',{method:'POST',headers:{Authorization:'Bearer '+sessionStorage.getItem('lg-cloud-token'),'Content-Type':'application/json'},body:JSON.stringify({trialAlternateUrls:['https://evil.test/']})});return r.status;});assert.equal(alternateForbidden,403);
+ report.adminWorkflowUrlForm='PASS';report.adminOnlyAlternateUrlForm='PASS';
  // Empty disabled tabs follow saved settings; switching off the selected tab
  // selects a visible service and keyboard navigation skips the hidden one.
  assert.equal(await adminPanel.$eval('#tab-headspace',n=>n.hidden),true);

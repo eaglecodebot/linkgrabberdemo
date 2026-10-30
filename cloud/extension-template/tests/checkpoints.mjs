@@ -159,6 +159,73 @@ test('start-page comparison preserves query and origin restrictions', () => {
   assert.equal(shared.sameStartingPage('https://x.test/start#b', 'https://x.test/start#a'), false);
   assert.throws(() => shared.originOf('javascript:alert(1)'));
 });
+test('Trial start matching accepts only its primary and explicit alternate pages', () => {
+  const config = shared.workflowConfig({...defaults, startUrl:'https://private.example/entry', trialAlternateUrls:['https://private.example/variant/', 'https://alternate.example/landing?view=one#panel']});
+  for (const url of [config.startUrl, 'https://private.example/variant', 'https://private.example/variant/#local', 'https://alternate.example/landing?view=one#panel']) assert.equal(shared.matchesStartingPage(url, config), true, url);
+  for (const url of ['https://private.example/variant/child', 'https://private.example/variant?different=yes', 'https://private.example/other', 'https://alternate.example/landing?view=two#panel', 'https://alternate.example/landing?view=one#other', 'https://wrong.example/variant', 'about:blank']) assert.equal(shared.matchesStartingPage(url, config), false, url);
+  assert.deepEqual(shared.validateConfig(config), ['https://private.example','https://alternate.example']);
+});
+test('alternate configuration rejects malformed URLs and never leaks into Cancel & Refund', () => {
+  const h=harness();configureStep2(h);
+  for (const trialAlternateUrls of ['https://alternate.example/', [''], ['javascript:alert(1)'], ['https://user:secret@alternate.example/'], [42]]) assert.throws(()=>shared.validateConfig(shared.workflowConfig({...h.cfg, trialAlternateUrls},1)));
+  h.cfg.trialAlternateUrls=['https://alternate.example/landing'];
+  const two=shared.workflowConfig(h.cfg,2);
+  assert.equal(two.trialAlternateUrls,undefined);assert.equal(shared.matchesStartingPage(h.cfg.trialAlternateUrls[0],two),false);
+  assert.equal(shared.validateConfig(two).includes('https://alternate.example'),false);
+  assert.throws(()=>shared.validateSettings({...h.cfg,startUrl:''}),/starting page/);
+});
+test('Trial reuses selected or background alternate tabs without reloading', async () => {
+  for (const alternate of ['https://private.example/variant','https://alternate.example/landing']) for (const selected of [true,false]) {
+    const h=harness();h.cfg.trialAlternateUrls=[alternate];
+    h.setTabs(selected?[{id:7,url:alternate,active:true},{id:8,url:h.cfg.startUrl,active:false}]:[{id:7,url:'about:blank',active:true},{id:8,url:alternate,active:false}]);
+    assert.ok(!(await h.send('START',{tabId:7})).error);
+    assert.equal(h.data.run.tabId,selected?7:8);assert.equal(h.data.run.openingStart,false);
+    assert.deepEqual(h.updates(),[{id:selected?7:8,active:true}]);assert.deepEqual(h.creations(),[]);
+  }
+});
+test('Trial opens only its primary URL when no acceptable starting tab is open', async () => {
+  const h=harness();h.cfg.trialAlternateUrls=['https://private.example/variant','https://alternate.example/landing'];
+  h.setTabs([{id:7,url:'https://private.example/variant/child',active:true}]);
+  await h.send('START',{tabId:7});assert.equal(h.data.run.openingStart,true);
+  assert.deepEqual(h.updates(),[{id:7,url:h.cfg.startUrl,active:true}]);
+  assert.deepEqual(h.creations(),[]);
+});
+test('a configured Trial redirect releases the starting gate and survives worker recreation', async () => {
+  for (const url of ['https://private.example/variant','https://alternate.example/landing']) {
+    const h=harness();h.cfg.trialAlternateUrls=[url];h.setTabs([{id:7,url:'about:blank',active:true}]);
+    await h.send('START',{tabId:7});const sender={...h.page,url,documentId:'redirected-document'};
+    const pull=await h.request('PULL',{url},sender);
+    assert.equal(pull.task.step.id,'premium');assert.equal(h.data.run.status,'running');
+    assert.equal((await h.request('PREPARE_BEFORE',{},sender)).ready,true);
+    const claim=await h.request('CLAIM',{url},sender);assert.equal(claim.allowed,true);
+    h.restart();const after=(await h.request('PULL',{url},sender)).task;
+    assert.equal(after.phase,'dispatching');assert.equal(after.pending.token,claim.token);
+    assert.equal((await h.request('CLAIM',{url},sender)).allowed,false);
+  }
+});
+test('unlisted start pages cannot prepare or claim the first Trial action', async () => {
+  const h=harness();h.cfg.trialAlternateUrls=['https://private.example/variant'];await h.send('START');
+  for (const url of ['https://private.example/variant/child','https://private.example/variant?other=1','https://private.example/elsewhere']) {
+    const sender={...h.page,url};assert.equal((await h.request('PULL',{url},sender)).task,null);
+    assert.equal((await h.request('PREPARE_BEFORE',{},sender)).ready,false);
+    assert.equal((await h.request('CLAIM',{url},sender)).allowed,false);
+    assert.equal(h.data.run.index,0);assert.equal(h.data.run.phase,'waiting');
+  }
+});
+test('current alternate list and browser overrides win over historical run settings', () => {
+  const previous={config:{workflowNumber:1,startUrl:'https://old.example/entry',trialAlternateUrls:['https://old.example/variant']}};
+  const config={...defaults,startUrl:'',trialAlternateUrls:['https://current.example/variant']};
+  const selected=shared.workflowConfig(config,1,previous);
+  assert.equal(selected.startUrl,previous.config.startUrl);assert.deepEqual(selected.trialAlternateUrls,config.trialAlternateUrls);
+  assert.deepEqual(shared.mergeSettings(config,{}).trialAlternateUrls,config.trialAlternateUrls);
+  assert.deepEqual(shared.mergeSettings(config,{trialAlternateUrls:[]}).trialAlternateUrls,[]);
+});
+test('Trial diagnostics redact alternate URLs and never export their settings', async () => {
+  const h=harness();h.cfg.trialAlternateUrls=['https://private.example/variant?private=secret'];await h.send('START');
+  h.data.run.message=h.cfg.trialAlternateUrls[0];
+  const encoded=JSON.stringify(shared.redactedDiagnostics(h.data.run,'1.7.6'));
+  assert.ok(!encoded.includes('secret'));assert.ok(!encoded.includes('trialAlternateUrls'));
+});
 test('a checkpoint survives worker recreation and prevents another claim', async () => {
   const h = harness(); await h.send('START');
   const pin = h.data.run.values.pincode;

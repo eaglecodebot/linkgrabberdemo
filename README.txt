@@ -1,3 +1,38 @@
+LINK GRABBER WEB v6.5.0 / COMBINED EXTENSION v1.10.0
+================================================
+30 October 2026 (IST)
+
+TRIAL ALTERNATE STARTING URLS - ADMIN ONLY
+Merged supplied Private Workflow Extension v1.7.6 while retaining Grab Links,
+personal capture connections, notifications and both existing workflows.
+
+Admin panel > Extension workflow URLs - all users:
+- Trial primary starting URL: the page opened if no accepted start is already open.
+- Trial alternate starting URLs: optional, one complete HTTP(S) URL per line,
+  up to 50. Save workflow URLs to apply the list to all users.
+- Cancel & Refund URL 1 and URL 2 remain separate and unchanged.
+
+Only an administrator can save these settings. The alternate list is hidden in
+users' personalized extension Settings, and the worker rejects local overrides.
+Installed v1.10+ extensions fetch the latest list on each fresh Trial start.
+They reuse an open primary/alternate page without reloading it; otherwise they
+open only the primary. HTTP redirects and in-page URL changes may reach a listed
+alternate. The captured first control must still be uniquely ready.
+Matches use the complete origin, path and query (one trailing slash tolerated).
+A configured fragment must match too. No child-path or wildcard matching.
+An empty list disables alternates; old local/run values cannot restore them.
+
+DEPLOY AND APPLY
+Upload all project files to GitHub and redeploy Railway. Hard refresh the panel.
+Set the alternate list as admin. Users download their personal extension update,
+replace the files in their installed folder and Reload the extension once.
+The existing per-account release notice/download tracking handles this release.
+After v1.10.0 is installed, later alternate-list edits need no new download.
+Existing active Console scripts continue unchanged. No new env variables or
+MongoDB migration/reset. Keep the current encryption key and database.
+
+Previous release notes and the general setup guide follow:
+
 LINK GRABBER WEB v6.4.2
 ======================
 

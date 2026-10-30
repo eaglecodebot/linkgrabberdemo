@@ -38,7 +38,7 @@ try{
   const auth=await api('login','',{username:'alice',password:'a'});
   await api('admin/users',admin.token,{username:'bob',password:'b'});
   await api('settings',admin.token,{pagePattern:sourceOrigin+'/perks*',enabledServices:['YouTube','Lovable','Notion','NordVPN','Headspace']});
-  const workflowUrls={startUrl:sourceOrigin+'/trial',step2StartUrl:sourceOrigin+'/subscriptions',step2SecondUrl:sourceOrigin+'/refund'};
+  const workflowUrls={startUrl:sourceOrigin+'/trial',step2StartUrl:sourceOrigin+'/subscriptions',step2SecondUrl:sourceOrigin+'/refund',trialAlternateUrls:[sourceOrigin+'/trial-alternate?offer=1']};
   await api('workflow-settings',admin.token,workflowUrls);
   await api('capture-script/regenerate',auth.token,{});
   const download=await raw('extension-download',auth.token);assert.equal(download.status,200);const zip=await JSZip.loadAsync(await download.arrayBuffer());
@@ -46,12 +46,12 @@ try{
   const connection=JSON.parse(await readFile(join(directory,'capture-connection.json'),'utf8'));
   browser=await puppeteer.launch({executablePath:process.env.CHROME_PATH,headless:true,args:process.env.TEST_NO_SANDBOX==='1'?['--no-sandbox']:[]});
   const website=await browser.newPage();await website.goto('about:blank');
-  let nextId=1,activeId=1;const tabs=new Map([[1,website]]),store={settings:{startUrl:sourceOrigin+'/stale-local',step2StartUrl:sourceOrigin+'/stale-cancel',step2SecondUrl:sourceOrigin+'/stale-refund',managedWorkflowUrls:false}},grants=new Set(JSON.parse(await readFile(join(directory,'manifest.json'),'utf8')).host_permissions),updates=[];
+  let nextId=1,activeId=1;const tabs=new Map([[1,website]]),store={settings:{startUrl:sourceOrigin+'/stale-local',step2StartUrl:sourceOrigin+'/stale-cancel',step2SecondUrl:sourceOrigin+'/stale-refund',managedWorkflowUrls:false,trialAlternateUrls:[sourceOrigin+'/stale-alternate']}},grants=new Set(JSON.parse(await readFile(join(directory,'manifest.json'),'utf8')).host_permissions),updates=[];
   const id='a'.repeat(32),extensionOrigin='chrome-extension://'+id;
   let popup;
   const list=()=>[...tabs].filter(([,p])=>!p.isClosed()).map(([id,p])=>({id,url:p.url(),active:id===activeId,status:'complete',windowId:1}));
   globalThis.chrome={
-    runtime:{id,getURL:file=>extensionOrigin+'/'+file,getManifest:()=>({version:'1.9.2'}),onMessage:event(),onStartup:event(),onInstalled:event()},
+    runtime:{id,getURL:file=>extensionOrigin+'/'+file,getManifest:()=>({version:'1.10.0'}),onMessage:event(),onStartup:event(),onInstalled:event()},
     storage:{local:{get:async key=>({[key]:structuredClone(store[key])}),set:async data=>{const changes={};for(const [k,v] of Object.entries(data)){changes[k]={newValue:v};store[k]=structuredClone(v);}if(popup&&!popup.isClosed())await popup.evaluate(changes=>{for(const fn of globalThis.__storageListeners||[])fn(changes,'local');},changes);},remove:async key=>{delete store[key];},setAccessLevel:async()=>{}}},
     permissions:{contains:async({origins})=>origins.every(o=>grants.has(o))},
     action:{setBadgeText:async()=>{},setBadgeBackgroundColor:async()=>{}},alarms:{create:async()=>{},clear:async()=>{},onAlarm:event()},
@@ -93,12 +93,19 @@ try{
   await popup.click('#grab-links');await wait(()=>store.grabRun?.status==='done','existing matching tab reused');assert.equal(activeId,1);assert.equal(unrelated.url(),sourceOrigin+'/other');assert.equal(updates.length,1);assert.equal((await api('links',auth.token)).total,10);
   // The same connection follows live admin URL/service settings.
   await api('settings',admin.token,{pagePattern:sourceOrigin+'/newperks?v=CHANGED',enabledServices:['YouTube']});await popup.reload();await wait(()=>popup.$eval('#grab-status',n=>!n.textContent.includes('Checking')),'settings reload');await popup.click('#grab-links');await wait(()=>store.grabRun?.status==='done'&&website.url().includes('CHANGED'),'live URL update');assert.equal((await api('links',auth.token)).total,11);
-  const managed=await send('GET_STATUS');assert.equal(managed.config.startUrl,workflowUrls.startUrl);assert.equal(managed.config.managedWorkflowUrls,true);
+  const managed=await send('GET_STATUS');assert.equal(managed.config.startUrl,workflowUrls.startUrl);assert.equal(managed.config.managedWorkflowUrls,true);assert.deepEqual(managed.config.trialAlternateUrls,workflowUrls.trialAlternateUrls);
+  const alternateOverride=await send('SAVE_SETTINGS',{settings:{trialAlternateUrls:[sourceOrigin+'/unauthorized-alternate'],managedWorkflowUrls:false}});assert.match(alternateOverride.error,/managed/);
   const override=await send('SAVE_SETTINGS',{settings:{startUrl:sourceOrigin+'/unauthorized'}});assert.match(override.error,/managed/);
   const updatedUrls={...workflowUrls,startUrl:sourceOrigin+'/trial-updated'};await api('workflow-settings',admin.token,updatedUrls);
   await wait(()=>!grabIsRunning(),'capture worker released');
   const startedWorkflow=await send('START',{tabId:1,workflowNumber:1});assert(!startedWorkflow.error,startedWorkflow.error);assert.equal(store.run.config.startUrl,updatedUrls.startUrl);assert.equal(website.url(),updatedUrls.startUrl);await send('STOP');
+  await website.goto(updatedUrls.trialAlternateUrls[0]);await website.evaluate(()=>window.preserveAlternateDocument='KEEP');const beforeAlternate=updates.length;
+  const startedAlternate=await send('START',{tabId:1,workflowNumber:1});assert(!startedAlternate.error,startedAlternate.error);assert.equal(updates.length,beforeAlternate);assert.equal(await website.evaluate(()=>window.preserveAlternateDocument),'KEEP');assert.deepEqual(store.run.config.trialAlternateUrls,updatedUrls.trialAlternateUrls);await send('STOP');
+  const clearedAlternates={...updatedUrls,trialAlternateUrls:[]};await api('workflow-settings',admin.token,clearedAlternates);
+  const afterClearing=await send('START',{tabId:1,workflowNumber:1});assert(!afterClearing.error,afterClearing.error);assert.deepEqual(store.run.config.trialAlternateUrls,[]);assert.equal(website.url(),updatedUrls.startUrl);await send('STOP');
   await popup.goto(sourceOrigin+'/extension/options.html');await popup.waitForFunction(()=>!document.querySelector('#managed-urls').hidden);for(const field of ['startUrl','step2StartUrl','step2SecondUrl'])assert.equal(await popup.$eval('#'+field,n=>n.readOnly),true);
+  assert.equal(await popup.$eval('#trial-alternates-setup',n=>n.hidden),true);assert.equal(await popup.$eval('#trialAlternateUrls',n=>n.readOnly),true);
+  await popup.click('button[type=submit]');await popup.waitForFunction(()=>document.querySelector('#saved').textContent.startsWith('Saved.'));assert(!Object.hasOwn(store.settings,'trialAlternateUrls'));
   await popup.goto(sourceOrigin+'/extension/popup.html');await wait(()=>popup.$eval('#grab-links',n=>!n.hidden),'popup returned');
   const newHost=sourceOrigin.replace('127.0.0.1','localhost'),newHostUrls={...updatedUrls,startUrl:newHost+'/trial-new-host'};
   await api('workflow-settings',admin.token,newHostUrls);await popup.click('#start');await popup.waitForFunction(()=>document.querySelector('#error').textContent.includes('current websites'));
@@ -109,10 +116,10 @@ try{
   // The web panel exposes an actual personalized ZIP download beside Copy.
   const panel=await browser.newPage();await panel.goto(origin);await panel.evaluate(token=>sessionStorage.setItem('lg-cloud-token',token),auth.token);await panel.reload();await panel.waitForFunction(()=>!document.querySelector('#regenerate-script').hidden);assert.equal(await panel.$eval('#download-extension',n=>n.hidden),true);
   await panel.click('#regenerate-script');await panel.waitForFunction(()=>!document.querySelector('#download-extension').hidden);
-  const session=await panel.createCDPSession();await session.send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:directory});await panel.click('#download-extension');const downloaded=join(directory,'Private_Workflow_alice_v1_9_2.zip');await wait(async()=>{try{return(await readFile(downloaded)).length>0;}catch{return false;}},'web panel ZIP download');const refreshedZip=await JSZip.loadAsync(await readFile(downloaded));const refreshed=JSON.parse(await refreshedZip.file('capture-connection.json').async('string'));assert.equal(refreshed.username,'alice');assert.notEqual(refreshed.captureKey,connection.captureKey);
+  const session=await panel.createCDPSession();await session.send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:directory});await panel.click('#download-extension');const downloaded=join(directory,'Private_Workflow_alice_v1_10_0.zip');await wait(async()=>{try{return(await readFile(downloaded)).length>0;}catch{return false;}},'web panel ZIP download');const refreshedZip=await JSZip.loadAsync(await readFile(downloaded));const refreshed=JSON.parse(await refreshedZip.file('capture-connection.json').async('string'));assert.equal(refreshed.username,'alice');assert.notEqual(refreshed.captureKey,connection.captureKey);
   await wait(()=>panel.$eval('#extension-update',n=>n.hidden),'update card cleared after confirmed download');await panel.reload();await panel.waitForFunction(()=>!document.querySelector('#workspace').hidden&&document.querySelector('#download-extension').hidden===false);assert.equal(await panel.$eval('#extension-update',n=>n.hidden),true);assert.equal(await panel.$eval('#notice',n=>n.hidden),true);
 
-  console.log(JSON.stringify({result:'PASS',adapter:'chrome.* test double, real Chromium DOM/network/UI',openAndSaveMs,buttonOrder:true,blankTabNavigation:true,existingTabReuse:true,duplicates:true,noLinks:true,liveAdminSettings:true,webpageCannotStart:true,revocation:true,ownerIsolation:true,panelPersonalizedZipDownload:true,adminUrlsOverrideOldLocalSettings:true,workflowStartFetchesLatest:true,managedOptionsReadOnly:true,updateCardClearsAndDoesNotRepeat:true,newAdminHostPermissionRetry:true},null,2));
+  console.log(JSON.stringify({result:'PASS',adapter:'chrome.* test double, real Chromium DOM/network/UI',openAndSaveMs,buttonOrder:true,blankTabNavigation:true,existingTabReuse:true,duplicates:true,noLinks:true,liveAdminSettings:true,webpageCannotStart:true,revocation:true,ownerIsolation:true,panelPersonalizedZipDownload:true,adminUrlsOverrideOldLocalSettings:true,workflowStartFetchesLatest:true,managedOptionsReadOnly:true,adminOnlyTrialAlternates:true,liveAlternateReuseAndClearing:true,updateCardClearsAndDoesNotRepeat:true,newAdminHostPermissionRetry:true},null,2));
 }finally{
   globalThis.fetch=nativeFetch;delete globalThis.chrome;await browser?.close();cloud.closeAllConnections();source.closeAllConnections();await Promise.all([new Promise(r=>cloud.close(r)),new Promise(r=>source.close(r))]);await rm(directory,{recursive:true,force:true});
 }

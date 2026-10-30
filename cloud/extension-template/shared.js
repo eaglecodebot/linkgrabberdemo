@@ -15,15 +15,19 @@ export function sameStartingPage(actual, expected) {
     return a.origin === b.origin && path(a.pathname) === path(b.pathname) && a.search === b.search && (!b.hash || a.hash === b.hash);
   } catch { return false; }
 }
+export function matchesStartingPage(actual, config) {
+  const alternates = config.workflowNumber === 2 ? [] : (config.trialAlternateUrls || []);
+  return [config.startUrl, ...alternates].some(url => sameStartingPage(actual, url));
+}
 export function workflowConfig(config, number = 1, previousRun = null) {
   if (![1, 2].includes(number)) throw new Error('Choose Step 1 or Step 2.');
-  const {step2StartUrl, step2SecondUrl, step2Steps, ...base} = config;
+  const {step2StartUrl, step2SecondUrl, step2Steps, trialAlternateUrls = [], ...base} = config;
   const previous = previousRun?.config;
   // Reuse only missing URLs from the same workflow. Its action definitions,
   // revision and other settings always come from the current configuration.
   const recover = !config.managedWorkflowUrls && previous && (previous.workflowNumber || 1) === number &&
     (number === 1 ? !base.startUrl : !step2StartUrl && !step2SecondUrl);
-  return number === 1 ? {...base, workflowNumber: 1, startUrl: base.startUrl || (recover ? previous.startUrl : '')}
+  return number === 1 ? {...base, trialAlternateUrls, workflowNumber: 1, startUrl: base.startUrl || (recover ? previous.startUrl : '')}
     : {...base, workflowNumber: 2, startUrl: step2StartUrl || (recover ? previous.startUrl : '') || '', secondUrl: step2SecondUrl || (recover ? previous.secondUrl : '') || '', steps: step2Steps || []};
 }
 export function mergeSettings(defaults, settings) {
@@ -34,16 +38,22 @@ export function mergeSettings(defaults, settings) {
 }
 export function validateSettings(config) {
   let configured = false;
-  if (config.startUrl) { validateConfig(workflowConfig(config, 1)); configured = true; }
+  if (config.startUrl || config.trialAlternateUrls?.length) { validateConfig(workflowConfig(config, 1)); configured = true; }
   if (config.step2StartUrl || config.step2SecondUrl) { validateConfig(workflowConfig(config, 2)); configured = true; }
   if (!configured) throw new Error('Enter the Step 1 URL or both Step 2 URLs before saving.');
 }
 export function validateConfig(config) {
   if (!config.startUrl) throw new Error('Set your starting page in Settings or workflow.json first.');
   originOf(config.startUrl);
+  const alternates = config.workflowNumber === 2 ? [] : (config.trialAlternateUrls ?? []);
+  if (!Array.isArray(alternates)) throw new Error('trialAlternateUrls must be an array of full HTTP or HTTPS URLs.');
+  for (const url of alternates) {
+    if (typeof url !== 'string' || !url.trim()) throw new Error('Each Trial alternate must be a full HTTP or HTTPS URL.');
+    originOf(url);
+  }
   if (!Array.isArray(config.additionalOrigins)) throw new Error('additionalOrigins must be an array.');
   if (config.workflowNumber === 2 && !config.secondUrl) throw new Error('Set both Step 2 URLs in Settings or workflow.json first.');
-  const origins = [...new Set([originOf(config.startUrl), ...(config.workflowNumber === 2 ? [originOf(config.secondUrl)] : []), ...config.additionalOrigins.map(originOf)])];
+  const origins = [...new Set([originOf(config.startUrl), ...alternates.map(originOf), ...(config.workflowNumber === 2 ? [originOf(config.secondUrl)] : []), ...config.additionalOrigins.map(originOf)])];
   if (!(config.stepTimeoutSeconds >= 10 && config.stepTimeoutSeconds <= 1800)) throw new Error('Step timeout must be 10–1800 seconds.');
   if (!(config.settleMilliseconds >= 200 && config.settleMilliseconds <= 5000)) throw new Error('Settle time must be 200–5000 milliseconds.');
   if (!Array.isArray(config.steps) || config.steps.length === 0) throw new Error('The workflow has no steps.');
@@ -103,7 +113,7 @@ export function contextPlan(run, step) {
 }
 export function redactedDiagnostics(run, version) {
   if (!run) return {version, status: 'idle'};
-  const hidden = [run.config.startUrl, run.config.secondUrl, ...(run.allowedOrigins || []), ...Object.values(run.values || {}).filter(v => typeof v === 'string' && v.length >= 3)].filter(Boolean).sort((a, b) => b.length - a.length);
+  const hidden = [run.config.startUrl, ...(run.config.trialAlternateUrls || []), run.config.secondUrl, ...(run.allowedOrigins || []), ...Object.values(run.values || {}).filter(v => typeof v === 'string' && v.length >= 3)].filter(Boolean).sort((a, b) => b.length - a.length);
   function clean(value) {
     if (typeof value === 'string') { for (const secret of hidden) value = value.replaceAll(secret, '[private value]'); return value.replace(/https?:\/\/[^\s"'<>]+/g, '[private page]'); }
     if (Array.isArray(value)) return value.map(clean);

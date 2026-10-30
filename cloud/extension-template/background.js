@@ -1,5 +1,5 @@
 import {grabSetup,grabStatus,startGrab,grabIsRunning,workflowSetup} from './grabber.js';
-import {ACTIVE, originOf, hostPattern, sameStartingPage, validateConfig, workflowConfig, mergeSettings, validateSettings, newRun, logRun, advance, contextPlan, redactedDiagnostics} from './shared.js';
+import {ACTIVE, originOf, hostPattern, sameStartingPage, matchesStartingPage, validateConfig, workflowConfig, mergeSettings, validateSettings, newRun, logRun, advance, contextPlan, redactedDiagnostics} from './shared.js';
 
 // Serialize state changes. Long DOM waits live in the content script, never here.
 let queue = Promise.resolve();
@@ -25,7 +25,7 @@ async function config(requireCurrent=false) {
       else {workflowRead ||= workflowSetup().finally(()=>{workflowRead=null;});remote=await workflowRead;}
       workflowCache=remote;workflowCacheUntil=Date.now()+5000;
     }
-    return {...cachedConfig,...remote.workflowUrls,workflowConfigError:''};
+    return {...cachedConfig,...remote.workflowUrls,trialAlternateUrls:remote.workflowUrls.trialAlternateUrls||[],workflowConfigError:''};
   }catch(e){
     if(requireCurrent)throw new Error('Cannot load the admin workflow URLs: '+e.message);
     return {...cachedConfig,workflowConfigError:e.message};
@@ -171,9 +171,9 @@ async function handle(msg, sender) {
     case 'SAVE_SETTINGS': {
       if (ACTIVE.has(run?.status)) throw new Error('Stop the current run before changing settings.');
       const current=await config();
-      if(current.managedWorkflowUrls){for(const field of ['startUrl','step2StartUrl','step2SecondUrl'])if(Object.hasOwn(msg.settings,field)&&msg.settings[field]!==current[field])throw new Error('These workflow URLs are managed by the web-panel administrator.');}
+      if(current.managedWorkflowUrls){for(const field of ['startUrl','step2StartUrl','step2SecondUrl','trialAlternateUrls'])if(Object.hasOwn(msg.settings,field)&&JSON.stringify(msg.settings[field])!==JSON.stringify(current[field]))throw new Error('These workflow URLs are managed by the web-panel administrator.');}
       const candidate={...current,...msg.settings};validateSettings(candidate);
-      const stored={...msg.settings};if(current.managedWorkflowUrls)for(const field of ['startUrl','step2StartUrl','step2SecondUrl','managedWorkflowUrls'])delete stored[field];
+      const stored={...msg.settings};if(current.managedWorkflowUrls)for(const field of ['startUrl','step2StartUrl','step2SecondUrl','trialAlternateUrls','managedWorkflowUrls'])delete stored[field];
       await chrome.storage.local.set({settings: stored}); cachedConfig = null; return {config: await config()};
     }
     case 'RESET_SETTINGS':
@@ -187,15 +187,15 @@ async function handle(msg, sender) {
       let selected;
       if (Number.isInteger(msg.tabId)) { try { selected = await chrome.tabs.get(msg.tabId); } catch {} }
       selected ||= (await chrome.tabs.query({active: true, currentWindow: true}))[0];
-      // Reuse an exact matching page before replacing the selected tab. New Tab
+      // Reuse a configured starting page before replacing the selected tab. New Tab
       // and about:blank are navigation targets too; no script is injected there.
-      const matching = selected && sameStartingPage(selected.url, cfg.startUrl) ? selected
-        : (await chrome.tabs.query({currentWindow: true})).find(t => sameStartingPage(t.url, cfg.startUrl));
+      const matching = selected && matchesStartingPage(selected.url, cfg) ? selected
+        : (await chrome.tabs.query({currentWindow: true})).find(t => matchesStartingPage(t.url, cfg));
       const tab = matching || selected || await chrome.tabs.create({url: 'about:blank', active: true});
       await register(origins);
-      run = newRun(cfg, tab.id); run.openingStart = !sameStartingPage(tab.url, cfg.startUrl);
+      run = newRun(cfg, tab.id); run.openingStart = !matchesStartingPage(tab.url, cfg);
       await save(logRun(run, `Step ${cfg.workflowNumber} started manually in your existing tab.`));
-      if (!sameStartingPage(tab.url, cfg.startUrl)) await chrome.tabs.update(tab.id, {url: cfg.startUrl, active: true});
+      if (!matchesStartingPage(tab.url, cfg)) await chrome.tabs.update(tab.id, {url: cfg.startUrl, active: true});
       else {await chrome.tabs.update(tab.id, {active: true}); await inject(tab.id);}
       return {run};
     }
@@ -229,14 +229,14 @@ async function handle(msg, sender) {
     case 'PULL': {
       if (run?.status !== 'running' || !await actor(run, sender, msg.readyState)) return {active: false, task: null};
       if (run.openingStart) {
-        if (sender.frameId === 0 && sameStartingPage(msg.url, run.config.startUrl)) delete run.openingStart;
+        if (sender.frameId === 0 && matchesStartingPage(msg.url, run.config)) delete run.openingStart;
         else {await expire(run);return {active: run.status === 'running', runId: run.id, index: run.index, task: null, reason: 'Opening the configured starting page in this tab.'};}
       }
       if (sender.frameId === 0) run = await checkDestination(run, msg.url || sender.url);
       run = await expire(run);
       if (run.status !== 'running') return {active: false, task: null};
       const packet = {active: true, runId: run.id, index: run.index, frameId: sender.frameId, documentId: sender.documentId, discoveries: discoveries(run, sender), task: null};
-      if (run.index === 0 && run.phase === 'waiting' && (sender.frameId !== 0 || !sameStartingPage(msg.url, run.config.startUrl))) return {...packet, reason: sender.frameId === 0 ? 'Waiting for the configured starting page.' : null};
+      if (run.index === 0 && run.phase === 'waiting' && (sender.frameId !== 0 || !matchesStartingPage(msg.url, run.config))) return {...packet, reason: sender.frameId === 0 ? 'Waiting for a configured starting page.' : null};
       const current = run.config.steps[run.index], next = run.config.steps[run.index + 1];
       if (current.action === 'navigate' && run.phase === 'navigating' && sender.documentId === run.pending?.documentId && !sameStartingPage(msg.url, run.pending.navigationUrl)) return {...packet, reason: 'Opening the configured second URL in this tab.'};
       const observing = run.phase !== 'waiting', target = observing ? next : current;
@@ -302,7 +302,7 @@ async function handle(msg, sender) {
     }
     case 'PREPARE_BEFORE': {
       if (!belongs(run, msg, sender) || run.status !== 'running' || run.phase !== 'waiting' || !actionPlan(run, sender)) return {ready: false};
-      if (run.index === 0 && !sameStartingPage(sender.url, run.config.startUrl)) return {ready: false};
+      if (run.index === 0 && !matchesStartingPage(sender.url, run.config)) return {ready: false};
       let absent = true;
       for (const step of run.config.steps[run.index].before || []) {
         const plan = contextPlan(run, step);
@@ -365,7 +365,7 @@ async function handle(msg, sender) {
     case 'CLAIM': {
       if (!belongs(run, msg, sender) || run.status !== 'running' || run.phase !== 'waiting') return {allowed: false};
       if (!actionPlan(run, sender)) return {allowed: false};
-      if (run.index === 0 && (sender.frameId !== 0 || !sameStartingPage(msg.url, run.config.startUrl))) return {allowed: false};
+      if (run.index === 0 && (sender.frameId !== 0 || !matchesStartingPage(msg.url, run.config))) return {allowed: false};
       if (!await clearPoint(run, sender, msg.point)) return {allowed: false, reason: 'The embedded control is covered or its frame is not ready.'};
       const token = crypto.randomUUID();
       run.phase = 'dispatching';
@@ -420,7 +420,7 @@ chrome.webNavigation.onCommitted.addListener(details => {
     const run = await readRun(); if (run?.status !== 'running' || run.tabId !== details.tabId) return;
     if (details.frameId === 0) {
       run.actors = {}; run.frameBindings = {}; run.frameInventory = {}; run.frameChallenges = {};
-      if (!run.openingStart || sameStartingPage(details.url, run.config.startUrl)) await checkDestination(run, details.url);
+      if (!run.openingStart || matchesStartingPage(details.url, run.config)) await checkDestination(run, details.url);
     } else {
       delete run.actors?.[details.frameId];
       for (const [key, binding] of Object.entries(run.frameBindings || {})) if (binding.frameId === details.frameId) delete run.frameBindings[key];
@@ -433,7 +433,7 @@ chrome.webNavigation.onDOMContentLoaded.addListener(details => {
 for (const event of [chrome.webNavigation.onHistoryStateUpdated, chrome.webNavigation.onReferenceFragmentUpdated]) {
   event.addListener(details => { serial(async () => {
     const run = await readRun(); if (run?.status !== 'running' || run.tabId !== details.tabId) return;
-    if (details.frameId === 0) await checkDestination(run, details.url);
+    if (details.frameId === 0 && (!run.openingStart || matchesStartingPage(details.url, run.config))) await checkDestination(run, details.url);
     const needed = plans(run).some(plan => (plan.available && plan.frameId === details.frameId) || plan.hops.some(hop => hop.parentFrameId === details.frameId));
     if (run.status === 'running' && needed) { try { await chrome.tabs.sendMessage(run.tabId, {type: 'WAKE_RUNNER'}, {frameId: details.frameId}); } catch {} }
   }); });
