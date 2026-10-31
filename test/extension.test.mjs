@@ -39,7 +39,7 @@ test('personalized ZIPs use the signed-in owner and current permanent key; commo
     const a=await f.connection(f.alice.token),b=await f.connection(f.bob.token);
     assert.equal(a.data.username,'alice');assert.equal(b.data.username,'bob');assert.notEqual(a.data.captureKey,b.data.captureKey);assert(first.script.includes(a.data.captureKey));
     assert.equal((await f.api('capture-script',f.alice.token)).script,first.script);
-    const manifest=JSON.parse(await a.zip.file('manifest.json').async('string'));assert.equal(manifest.version,'1.10.0');assert.deepEqual(manifest.host_permissions,['http://127.0.0.1/*','https://source.example/*']);
+    const manifest=JSON.parse(await a.zip.file('manifest.json').async('string'));assert.equal(manifest.version,'1.11.0');assert.deepEqual(manifest.host_permissions,['http://127.0.0.1/*','https://source.example/*']);
     const popup=await a.zip.file('popup.html').async('string');assert(popup.indexOf('id="start"')<popup.indexOf('id="grab-links"'));assert(popup.indexOf('id="grab-links"')<popup.indexOf('id="start2"'));
     for(const file of ['engine.js','content.js','workflow.json','options.html','grabber.js','grabber-page.js','grabber-decode.js'])assert(a.zip.file(file));
     assert.equal(await a.zip.file('engine.js').async('string'),await b.zip.file('engine.js').async('string'));

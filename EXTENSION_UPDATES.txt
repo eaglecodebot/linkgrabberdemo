@@ -1,3 +1,14 @@
+SERVICE CONFIGURATION IN v6.6.0 / EXTENSION v1.11.0
+The extension's dynamic matcher is a one-time code update. Users download/reload
+v1.11.0 once through the existing release-notice flow. Later service add/remove/
+restore changes are stored in MongoDB and fetched on every capture. They do not
+change the release ID or generate another update notice. Console update prompts
+only apply to older matchers when a custom service is enabled. A matcher-only
+console regeneration keeps the existing extension connection key.
+See SERVICE_MANAGEMENT.txt for name + sample URL setup and matching behavior.
+
+Earlier extension update guide:
+
 EXTENSION CODE UPDATES AND WORKFLOW URL SETTINGS
 Link Grabber Web v6.5.0 / Private Workflow Runner v1.10.0
 30 October 2026 (IST)

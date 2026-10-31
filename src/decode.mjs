@@ -36,6 +36,10 @@ export function matchRewardLink(input,rules) {
   const u=new URL(decoded.url),path=u.pathname.toLowerCase();
   for(const rule of rules){
     if(!rule.hosts.includes(decoded.host))continue;
+    if(rule.exactPath!==undefined){
+      if(u.pathname===rule.exactPath&&(rule.queryAll||[]).every(key=>!!u.searchParams.get(key)))return {...decoded,service:rule.service};
+      continue;
+    }
     const query=(rule.queryAny||[]).some(key=>!!u.searchParams.get(key));
     const prefix=(rule.pathPrefixes||[]).some(p=>path===p||path.startsWith(p+'/'));
     const contains=(rule.pathContains||[]).some(p=>path.includes(p));
@@ -63,8 +67,8 @@ export function indianFilename(title = 'Decoded_Links', date = new Date(), forma
 }
 
 // An absent service means the combined export; reject unsupported filters.
-export function exportTitle(service) {
+export function exportTitle(service,available=SERVICE_NAMES) {
   if (!service) return 'Decoded_Links';
-  if (!SERVICE_NAMES.includes(service)) throw new Error('Select a supported service.');
+  if(typeof service!=='string'||service.length>60||/[\u0000-\u001f\u007f]/.test(service)||(available&&!available.includes(service)))throw new Error('Select a supported service.');
   return service;
 }

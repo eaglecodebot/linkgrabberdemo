@@ -1,4 +1,12 @@
-PRIVATE WORKFLOW RUNNER v1.10.0 - PERSONAL LINK GRABBER
+DYNAMIC CAPTURE SERVICES - v1.11.0
+31 October 2026 (IST)
+Grab Links fetches the current admin-managed service catalog on every capture.
+The admin can add/remove/restore services without another extension download.
+Dynamic rules check domain, exact path and required URL parameter names. The
+server validates matches again before saving. Existing workflow actions, Trial
+alternates, admin workflow URLs and capture notification colors are unchanged.
+
+PRIVATE WORKFLOW RUNNER v1.11.0 - PERSONAL LINK GRABBER
 30 October 2026 (IST)
 
 Buttons: Trial | Grab Links | Cancel & Refund.

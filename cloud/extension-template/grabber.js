@@ -13,7 +13,7 @@ export function captureConnection(){
 }
 async function request(path,body){
   const c=await captureConnection();let r;
-  try{r=await fetch(c.panelOrigin+'/api/extension/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:6,captureKey:c.captureKey,...body}),signal:AbortSignal.timeout(12000)});}
+  try{r=await fetch(c.panelOrigin+'/api/extension/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:6,matcherVersion:2,captureKey:c.captureKey,...body}),signal:AbortSignal.timeout(12000)});}
   catch{throw new Error(path==='workflow'?'Cannot reach the Link Grabber panel to load workflow URLs. Check the connection and retry.':'Cannot reach the Link Grabber panel. Check the connection and retry. No save was confirmed.');}
   let data;try{data=await r.json();}catch{throw new Error('The Link Grabber server returned an invalid response. No save was confirmed.');}
   if(!r.ok)throw new Error(data.error||'Capture access failed. Download a fresh extension from your panel.');

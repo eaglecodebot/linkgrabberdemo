@@ -1,3 +1,4 @@
+import {serviceCatalog,inferService,changeService} from './services.mjs';
 import {workflowSettings,cleanWorkflowSettings} from './workflow-settings.mjs';
 import {extensionReleaseStatus,currentReleaseId} from './extension-release.mjs';
 import { extensionDownload } from './extension-download.mjs';
@@ -6,13 +7,13 @@ import http from 'node:http';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { passwordHash, verifyPassword, username, safeUser, hashToken, ownerFor } from './auth.mjs';
-import { perkLink, indianFilename, exportTitle } from '../src/decode.mjs';
+import { matchRewardLink, indianFilename, exportTitle } from '../src/decode.mjs';
 import { exportFormat, exportWorksheets, excelBuffer, sendExcel } from './excel-export.mjs';
 import { acceptCapture, createCaptureScript, readCaptureScript, captureScriptStatus, revocation, captureConfiguration, extensionConfiguration, extensionWorkflowConfiguration, cleanSettings, captureSettings } from './capture.mjs';
 
 const text = (value, size = 1000) => String(value || '').slice(0, size);
-function validateLink(row, ownerId) {
-  const decoded = perkLink(row.url);
+function validateLink(row, ownerId, rules) {
+  const decoded = matchRewardLink(row.url,rules);
   if (!decoded) throw new Error('A submitted link is not a supported reward URL.');
   if (!/^[a-zA-Z0-9_-]{1,100}$/.test(String(row.uid || ''))) throw new Error('Invalid capture ID.');
   const profile_id = text(row.profile_id, 100), url = decoded.url;
@@ -129,13 +130,19 @@ export function createApp(repo, { publicOrigin = '', trustProxy = false, scriptS
         if (req.method === 'POST' && route === '/api/logout') { await repo.revokeSession(tokenHash); return send(res, { ok: true }); }
         if (req.method === 'POST' && route === '/api/password') { const b = await body(req); if (!await verifyPassword(b.currentPassword, user.password)) return send(res, { error: 'Current password is incorrect.' }, 403); await repo.updateUser(user._id, { password: await passwordHash(b.password),scriptRevocation:revocation('password-changed','Your password was changed. Your earlier script was revoked.') }); return send(res, { ok: true }); }
         if (req.method === 'POST' && route === '/api/check-links') {
-          const b = await body(req);
-          if (!Array.isArray(b.urls) || b.urls.length > 5000 || b.urls.some(url => typeof url !== 'string' || !perkLink(url))) throw new Error('Invalid reward URL list.');
-          const urls = [...new Set(b.urls.map(url => perkLink(url).url))];
+          const b = await body(req),rules=(await captureSettings(repo)).rules;
+          if (!Array.isArray(b.urls) || b.urls.length > 5000 || b.urls.some(url => typeof url !== 'string' || !matchRewardLink(url,rules))) throw new Error('Invalid reward URL list.');
+          const urls = [...new Set(b.urls.map(url => matchRewardLink(url,rules).url))];
           return send(res, { urls: await repo.existingUrls(user._id, urls) });
         }
         if (route.startsWith('/api/admin/')) {
           if (user.role !== 'admin') return send(res, { error: 'Administrator access required.' }, 403);
+          if(route==='/api/admin/services'&&req.method==='GET')return send(res,{catalog:await serviceCatalog(repo)});
+          if(route==='/api/admin/services/preview'&&req.method==='POST')return send(res,{draft:inferService(await body(req))});
+          if(route==='/api/admin/services'&&req.method==='POST'){
+            const catalog=await changeService(repo,await body(req));
+            return send(res,{catalog,settings:await captureSettings(repo),updates:{scriptRegeneration:'Only older console matchers need regeneration when a custom service is enabled.',extensionUpdate:false}});
+          }
           if (route === '/api/admin/users' && req.method === 'GET') return send(res, { users: (await repo.allUsers()).map(safeUser) });
           if (route === '/api/admin/users' && req.method === 'POST') {
             const b = await body(req), name = username(b.username), password = await passwordHash(b.password);
@@ -156,39 +163,39 @@ export function createApp(repo, { publicOrigin = '', trustProxy = false, scriptS
         }
         if (req.method === 'POST' && route === '/api/sync') {
           const b = await body(req); if (!Array.isArray(b.rows) || b.rows.length > 200) throw new Error('Send up to 200 captures per batch.');
-          const rows = b.rows.map(r => validateLink(r, user._id));
           const policy=await captureSettings(repo);
+          const rows = b.rows.map(r => validateLink(r, user._id,policy.rules));
           if(!policy.configured||rows.some(row=>!policy.enabledServices.includes(row.service)))return send(res,{error:'The administrator has not enabled these capture services.'},403);
           await repo.saveLinks(user._id, rows); return send(res, { accepted: b.rows.map(r => ({ uid: r.uid, revision: Number(r.revision) || 1 })) });
         }
         if (req.method === 'POST' && route === '/api/sync-exports') {
-          const item = (await body(req)).export;
+          const item = (await body(req)).export,rules=(await serviceCatalog(repo)).services.map(item=>item.rule);
           if (!item || !/^[a-zA-Z0-9_-]{1,100}$/.test(item.id) || !Array.isArray(item.urls) || !item.urls.length || item.urls.length > 10000) throw new Error('Invalid export snapshot.');
-          if (item.urls.some(url => !perkLink(url)) || Buffer.byteLength(item.urls.join('\n')) > 8 * 1024 * 1024) throw new Error('Invalid export URLs.');
+          if (item.urls.some(url => !matchRewardLink(url,rules)) || Buffer.byteLength(item.urls.join('\n')) > 8 * 1024 * 1024) throw new Error('Invalid export URLs.');
           const createdAt = new Date(item.createdAt).toISOString();
-          const services = new Set(item.urls.map(url => perkLink(url).service));
+          const services = new Set(item.urls.map(url => matchRewardLink(url,rules).service));
           const service = services.size === 1 ? [...services][0] : '';
           const title = service && item.filename === indianFilename(service, new Date(createdAt)) ? service : 'Decoded_Links';
-          await repo.saveExport({ _id: hashToken(user._id + ':' + item.id), ownerId: user._id, filename: indianFilename(title, new Date(createdAt)), createdAt, urls: item.urls, count: item.urls.length });
+          await repo.saveExport({ _id: hashToken(user._id + ':' + item.id), ownerId: user._id, filename: indianFilename(title, new Date(createdAt)), createdAt, urls: item.urls, count: item.urls.length,worksheets:exportWorksheets(item.urls.map(url=>({url,service:matchRewardLink(url,rules).service})),item.urls) });
           return send(res, { ok: true });
         }
         if (route === '/api/settings' && req.method === 'GET') return send(res, { settings: await captureSettings(repo) });
         if (route === '/api/settings' && req.method === 'POST') {
           if(user.role!=='admin')return send(res,{error:'Only an administrator can change the main webpage and captured services.'},403);
-          const settings=cleanSettings(await body(req));
+          const catalog=await serviceCatalog(repo),settings={...cleanSettings(await body(req),catalog.services.filter(item=>!item.removed).map(item=>item.name)),serviceCatalogRevision:catalog.revision};
           await repo.saveGlobalCaptureSettings(settings);
           return send(res, { ok: true });
         }
         const owner = ownerFor(user, params.userId);
-        if (route === '/api/links' && req.method === 'GET') { exportTitle(params.service); return send(res, await repo.listLinks(owner, params)); }
+        if (route === '/api/links' && req.method === 'GET') { exportTitle(params.service,(await serviceCatalog(repo)).services.map(item=>item.name)); return send(res, await repo.listLinks(owner, params)); }
         if (route === '/api/exports' && req.method === 'GET') return send(res, { exports: await repo.listExports(owner) });
         if (route === '/api/exports' && req.method === 'POST') {
-          const b = await body(req), target = ownerFor(user, b.userId), title = exportTitle(b.service), format = exportFormat(b.format), { rows } = await repo.listLinks(target, b, true);
+          const b = await body(req), target = ownerFor(user, b.userId), title = exportTitle(b.service,(await serviceCatalog(repo)).services.map(item=>item.name)), format = exportFormat(b.format), { rows } = await repo.listLinks(target, b, true);
           const urls = [...new Set(rows.map(r => r.url))];
           if (!urls.length) throw new Error('No links match this export.');
           if (urls.length > 10000) throw new Error('More than 10,000 links match. Narrow the search before exporting.');
           if (Buffer.byteLength(urls.join('\n')) > 8 * 1024 * 1024) throw new Error('Export is too large. Narrow the search.');
-          const now = new Date(), item = { _id: randomUUID(), ownerId: target, format, filename: indianFilename(title, now, format), createdAt: now.toISOString(), count: urls.length, urls, ...(format === 'xlsx' ? { worksheets: exportWorksheets(rows, urls) } : {}) };
+          const now = new Date(), item = { _id: randomUUID(), ownerId: target, format, filename: indianFilename(title, now, format), createdAt: now.toISOString(), count: urls.length, urls, worksheets: exportWorksheets(rows, urls) };
           const buffer = format === 'xlsx' ? await excelBuffer(item) : null;
           const txt = format === 'txt' ? textExport(item) : null;
           await repo.addExport(item); await repo.markExported(target, rows.map(r => r._id));

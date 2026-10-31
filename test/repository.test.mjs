@@ -5,7 +5,7 @@ import { Repository } from '../cloud/repository.mjs';
 // Small Mongo update contract double. Native Mongo/Atlas is not available here.
 class Collection {
   constructor(rows = []) { this.rows = rows; }
-  matches(row, filter) { return Object.entries(filter).every(([k,v]) => v&&typeof v==='object'&&Array.isArray(v.$in)?v.$in.includes(row[k]):v&&typeof v==='object'&&Object.hasOwn(v,'$ne')?!(Array.isArray(row[k])?row[k].includes(v.$ne):row[k]===v.$ne):row[k] === v); }
+  matches(row, filter) { return Object.entries(filter).every(([k,v]) => v&&typeof v==='object'&&Array.isArray(v.$in)?v.$in.includes(row[k]):v&&typeof v==='object'&&Object.hasOwn(v,'$ne')?!(Array.isArray(row[k])?row[k].includes(v.$ne):row[k]===v.$ne):k.split('.').reduce((value,key)=>value?.[key],row) === v); }
   async findOne(filter) { return this.rows.find(row => this.matches(row, filter)); }
   async countDocuments(filter) { return this.rows.filter(row=>this.matches(row,filter)).length; }
   async insertOne(row){if(this.rows.some(r=>r._id===row._id)){const e=new Error('duplicate');e.code=11000;throw e;}this.rows.push(structuredClone(row));}
@@ -108,4 +108,14 @@ test('Mongo extension notices use a conditional add-to-set and never modify acco
  await repo.markExtensionDownloaded('alice','release-one');await repo.markExtensionDownloaded('alice','release-one');
  assert.deepEqual((await repo.extensionState('alice')).downloadedReleases,['release-one']);assert.equal((await repo.userById('alice')).authVersion,7);
  assert.equal(await repo.extensionState('bob'),undefined);
+});
+
+test('Mongo service catalog uses revision checks so simultaneous admin edits cannot overwrite one another',async()=>{
+ const settings=new Collection(),repo=new Repository({collection:name=>name==='settings'?settings:new Collection()});
+ await repo.saveServiceCatalog(null,{revision:1,services:[{name:'First'}]});
+ const old=structuredClone(await repo.globalServiceCatalog());
+ await repo.saveServiceCatalog(old,{revision:2,services:[{name:'First'},{name:'Second'}]});
+ await assert.rejects(repo.saveServiceCatalog(old,{revision:2,services:[{name:'Stale'}]}),/another session/);
+ await assert.rejects(repo.saveServiceCatalog(null,{revision:1,services:[]}),/another session/);
+ assert.equal((await repo.globalServiceCatalog()).value.services.length,2);
 });

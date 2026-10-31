@@ -1,7 +1,7 @@
 // Shared service sections for the hosted admin and user panels.
 // Each service is queried separately, so a large history cannot hide another service.
 window.createLinkSections = function ({ container, load, copy, exportSection, date, onError }) {
-  const services = ['YouTube', 'Lovable', 'Notion', 'NordVPN', 'Headspace'];
+  let services = ['YouTube', 'Lovable', 'Notion', 'NordVPN', 'Headspace'];
   const groups = new Map();
   let revision = 0, active = null, enabledServices = new Set();
   const element = (tag, text, cls) => {
@@ -43,8 +43,8 @@ window.createLinkSections = function ({ container, load, copy, exportSection, da
     if (!available.includes(active)) active = available[0] || null;
     activate(active, moveFocus);
   }
-  for (const service of services) {
-    const key = service.toLowerCase(), section = element('section', undefined, 'service-section');
+  function addGroup(service) {
+    const key = ['YouTube','Lovable','Notion','NordVPN','Headspace'].includes(service)?service.toLowerCase():'service-'+Array.from(service).map(c=>c.codePointAt(0).toString(16)).join('-'), section = element('section', undefined, 'service-section');
     section.id = 'section-' + key; section.hidden = true;
     section.setAttribute('role', 'tabpanel');
     section.setAttribute('aria-labelledby', 'tab-' + key);
@@ -89,6 +89,7 @@ window.createLinkSections = function ({ container, load, copy, exportSection, da
     next.onclick = run(next, async () => { group.page++; await currentRefresh(); });
     render(group);
   }
+  for(const service of services)addGroup(service);
   activate(active);
   function render(group) {
     group.tab.textContent = group.service + ' (' + group.total + ')';
@@ -141,6 +142,13 @@ window.createLinkSections = function ({ container, load, copy, exportSection, da
   }
   return {
     refresh,
+    setServices(names){
+      if(JSON.stringify(names)===JSON.stringify(services))return;
+      revision++;services=[...names];
+      for(const [name,group] of groups)if(!services.includes(name)){group.tab.remove();group.section.remove();groups.delete(name);}
+      for(const name of services)if(!groups.has(name))addGroup(name);
+      syncVisibility();
+    },
     setEnabledServices(services) { enabledServices = new Set(services); syncVisibility(); },
     reset() { revision++; for (const group of groups.values()) { group.page = 1; group.rows = []; group.total = 0; render(group); } syncVisibility(); },
     rows() { return [...groups.values()].flatMap(group => group.rows); }

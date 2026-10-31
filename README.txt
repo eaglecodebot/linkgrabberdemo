@@ -1,3 +1,58 @@
+LINK GRABBER WEB v6.6.0 / PERSONAL EXTENSION v1.11.0
+31 October 2026 (IST)
+
+ADMIN-MANAGED CAPTURE SERVICES
+Add/remove/restore services in the web panel without editing code or redeploying.
+Existing YouTube, Lovable, Notion, NordVPN and Headspace settings are retained.
+
+1. Admin > Manage capture services: enter a unique service name and one sample
+   LinkedIn safety/go URL (or its decoded HTTP/HTTPS destination).
+2. Click Preview matching. Review the decoded domain, exact destination path
+   and required parameter names. Sample parameter values are not stored.
+3. Click Add service. It is enabled for every user. The capture switches above
+   can disable a service without removing its definition. Save capture settings
+   after adjusting switches. Up to 50 services can be active.
+4. Remove stops future capture. Restore enables it again. Neither action deletes
+   users' saved links or export snapshots. Names are retained for their history.
+
+Matching accepts the same domain (with or without www), exact case-sensitive
+path and all listed parameters with nonempty values. Parameter values can change
+between pages/accounts. Common utm/click tracking parameters are ignored during
+inference; full destination URLs are still saved unchanged. Overlapping service
+rules are rejected. New service names appear in each user's count tabs and in
+separate TXT/Excel groups/sheets. Invalid Excel sheet characters are replaced;
+name collisions get a suffix. Old export downloads keep their original groups.
+
+A sample cannot identify changing path codes automatically. If a private code
+is in the path, the preview uses that exact path. Only embedded LinkedIn safety
+URL destinations and direct HTTP(S) URLs are decoded; network redirects and
+opaque shorteners are not followed or redeemed.
+
+UPDATE BEHAVIOR
+Deploy this release once and have extension users download/reload v1.11.0 once.
+The existing per-account notification tracks this code release. Adding/removing
+services later is configuration data: no new extension release/download notice.
+Current scripts/extensions fetch current matching rules on every capture.
+
+Existing older console scripts keep working while only built-in services are
+enabled. Enabling a custom service prompts those users to regenerate their
+console script once, or use the updated extension. The server refuses an older
+matcher instead of reporting a partial capture as success. Updated extension
+users can download/capture with their existing connection even while their
+console script needs an update. This matcher-only regeneration retains the key,
+so it does not force another extension download. Subsequent service changes do
+not regenerate scripts, rotate keys or reset credentials. Normal password/reset,
+account-disable and manual-revoke behavior is unchanged.
+
+A service change applies to the next capture. All enabled services remain
+required; missing links produce an error and no partial save. Duplicates remain
+excluded. Saved link histories are separate per user and visible to the admin.
+
+No environment changes. Keep the current MongoDB database and encryption key.
+The global service catalog is created automatically on the first admin change.
+
+Previous setup/release notes follow:
+
 LINK GRABBER WEB v6.5.0 / COMBINED EXTENSION v1.10.0
 ================================================
 30 October 2026 (IST)

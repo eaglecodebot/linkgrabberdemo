@@ -16,7 +16,7 @@ const event=()=>({listeners:[],addListener(fn){this.listeners.push(fn);}});
 const directory=await mkdtemp(join(tmpdir(),'lg-extension-test-'));
 const repo=new MemoryRepository();await bootstrap(repo,'admin','admin');
 const cloud=createApp(repo,{scriptSecret:'cd'.repeat(32)});cloud.listen(0,'127.0.0.1');await once(cloud,'listening');const origin='http://127.0.0.1:'+cloud.address().port;
-let fixtureLinks=5;
+let fixtureLinks=5,fixtureCustom='';
 const source=http.createServer(async(req,res)=>{
   if(req.url.startsWith('/extension/')){
     const file=req.url.slice('/extension/'.length);
@@ -26,7 +26,8 @@ const source=http.createServer(async(req,res)=>{
   res.setHeader('Content-Type','text/html');res.setHeader('Content-Security-Policy',"default-src 'none';connect-src 'none';script-src 'none'");
   const variant=new URL(req.url,'http://localhost').searchParams.get('v')||'EXAMPLE';
   const links=['https://youtube.com/premium?acc='+variant+'%2Bkeep','https://lovable.dev/lp/test?reward_code='+variant,'https://www.notion.com/redeem/linkedin?code='+variant,'https://nordvpn.com/linkedin/?code='+variant,'https://checkout.headspace.com/checkout?voucherCode=LINKEDIN-'+variant];
-  res.end('<!doctype html><title>Capture fixture</title><h1>Fake source page</h1>'+links.slice(0,fixtureLinks).map(url=>'<a href="https://www.linkedin.com/safety/go/?url='+encodeURIComponent(url)+'">Reward</a>').join(''));
+  if(fixtureCustom)links.push('https://custom.example/redeem?code='+fixtureCustom);
+  res.end('<!doctype html><title>Capture fixture</title><h1>Fake source page</h1>'+(fixtureCustom?links:links.slice(0,fixtureLinks)).map(url=>'<a href="https://www.linkedin.com/safety/go/?url='+encodeURIComponent(url)+'">Reward</a>').join(''));
 });source.listen(0,'127.0.0.1');await once(source,'listening');const sourceOrigin='http://127.0.0.1:'+source.address().port;
 const nativeFetch=globalThis.fetch;
 const raw=(path,token='',body)=>nativeFetch(origin+'/api/'+path,{headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},...(body===undefined?{}:{method:'POST',body:JSON.stringify(body)})});
@@ -51,7 +52,7 @@ try{
   let popup;
   const list=()=>[...tabs].filter(([,p])=>!p.isClosed()).map(([id,p])=>({id,url:p.url(),active:id===activeId,status:'complete',windowId:1}));
   globalThis.chrome={
-    runtime:{id,getURL:file=>extensionOrigin+'/'+file,getManifest:()=>({version:'1.10.0'}),onMessage:event(),onStartup:event(),onInstalled:event()},
+    runtime:{id,getURL:file=>extensionOrigin+'/'+file,getManifest:()=>({version:'1.11.0'}),onMessage:event(),onStartup:event(),onInstalled:event()},
     storage:{local:{get:async key=>({[key]:structuredClone(store[key])}),set:async data=>{const changes={};for(const [k,v] of Object.entries(data)){changes[k]={newValue:v};store[k]=structuredClone(v);}if(popup&&!popup.isClosed())await popup.evaluate(changes=>{for(const fn of globalThis.__storageListeners||[])fn(changes,'local');},changes);},remove:async key=>{delete store[key];},setAccessLevel:async()=>{}}},
     permissions:{contains:async({origins})=>origins.every(o=>grants.has(o))},
     action:{setBadgeText:async()=>{},setBadgeBackgroundColor:async()=>{}},alarms:{create:async()=>{},clear:async()=>{},onAlarm:event()},
@@ -110,16 +111,27 @@ try{
   const newHost=sourceOrigin.replace('127.0.0.1','localhost'),newHostUrls={...updatedUrls,startUrl:newHost+'/trial-new-host'};
   await api('workflow-settings',admin.token,newHostUrls);await popup.click('#start');await popup.waitForFunction(()=>document.querySelector('#error').textContent.includes('current websites'));
   assert.notEqual(store.run.status,'running');await popup.click('#start');await wait(()=>store.run?.status==='running'&&store.run.config.startUrl===newHostUrls.startUrl,'new admin hostname permission retry');assert(grants.has('http://localhost/*'));await send('STOP');
+  const beforeCatalogRelease=(await api('extension-release',auth.token)).release.id;
+  const currentCatalog=(await api('admin/services',admin.token)).catalog;
+  await api('admin/services',admin.token,{action:'add',name:'Custom Service',sampleUrl:'https://www.linkedin.com/safety/go/?url='+encodeURIComponent('https://custom.example/redeem?code=SAMPLE'),revision:currentCatalog.revision});
+  await api('settings',admin.token,{pagePattern:sourceOrigin+'/newperks?v=CHANGED',enabledServices:['Custom Service']});fixtureCustom='EXT_FIRST';
+  await popup.reload();await wait(()=>popup.$eval('#grab-links',n=>!n.disabled),'custom capture enabled');
+  const clickCustom=async expected=>{await wait(()=>!grabIsRunning(),'capture released');const previous=store.grabRun?.id;await popup.click('#grab-links');await wait(()=>store.grabRun?.id!==previous&&store.grabRun?.status===expected,'custom capture result');};
+  await clickCustom('done');assert.equal((await api('links',auth.token)).total,12);
+  await clickCustom('error');assert.match(store.grabRun.message,/Duplicate/);
+  fixtureCustom='EXT_SECOND';await website.reload();await clickCustom('done');assert.equal((await api('links',auth.token)).total,13);
+  await api('admin/services',admin.token,{action:'remove',name:'Custom Service',revision:currentCatalog.revision+1});
+  assert.equal((await api('extension-release',auth.token)).release.id,beforeCatalogRelease,'service changes must not request another extension download');
   const forbidden=await send('GRAB_LINKS',{tabId:1},{id,url:sourceOrigin+'/perks',tab:{id:1},frameId:0});assert.match(forbidden.error,/only from the extension/);
-  await api('capture-scripts/revoke',auth.token,{});await popup.click('#grab-links');await wait(()=>store.grabRun?.status==='error'&&/revoked/i.test(store.grabRun.message),'old ZIP revoked');assert.equal((await api('links',auth.token)).total,11);
+  await api('capture-scripts/revoke',auth.token,{});await popup.click('#grab-links');await wait(()=>store.grabRun?.status==='error'&&/revoked/i.test(store.grabRun.message),'old ZIP revoked');assert.equal((await api('links',auth.token)).total,13);
   const bob=await api('login','',{username:'bob',password:'b'});assert.equal((await api('links',bob.token)).total,0);
   // The web panel exposes an actual personalized ZIP download beside Copy.
   const panel=await browser.newPage();await panel.goto(origin);await panel.evaluate(token=>sessionStorage.setItem('lg-cloud-token',token),auth.token);await panel.reload();await panel.waitForFunction(()=>!document.querySelector('#regenerate-script').hidden);assert.equal(await panel.$eval('#download-extension',n=>n.hidden),true);
   await panel.click('#regenerate-script');await panel.waitForFunction(()=>!document.querySelector('#download-extension').hidden);
-  const session=await panel.createCDPSession();await session.send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:directory});await panel.click('#download-extension');const downloaded=join(directory,'Private_Workflow_alice_v1_10_0.zip');await wait(async()=>{try{return(await readFile(downloaded)).length>0;}catch{return false;}},'web panel ZIP download');const refreshedZip=await JSZip.loadAsync(await readFile(downloaded));const refreshed=JSON.parse(await refreshedZip.file('capture-connection.json').async('string'));assert.equal(refreshed.username,'alice');assert.notEqual(refreshed.captureKey,connection.captureKey);
+  const session=await panel.createCDPSession();await session.send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:directory});await panel.click('#download-extension');const downloaded=join(directory,'Private_Workflow_alice_v1_11_0.zip');await wait(async()=>{try{return(await readFile(downloaded)).length>0;}catch{return false;}},'web panel ZIP download');const refreshedZip=await JSZip.loadAsync(await readFile(downloaded));const refreshed=JSON.parse(await refreshedZip.file('capture-connection.json').async('string'));assert.equal(refreshed.username,'alice');assert.notEqual(refreshed.captureKey,connection.captureKey);
   await wait(()=>panel.$eval('#extension-update',n=>n.hidden),'update card cleared after confirmed download');await panel.reload();await panel.waitForFunction(()=>!document.querySelector('#workspace').hidden&&document.querySelector('#download-extension').hidden===false);assert.equal(await panel.$eval('#extension-update',n=>n.hidden),true);assert.equal(await panel.$eval('#notice',n=>n.hidden),true);
 
-  console.log(JSON.stringify({result:'PASS',adapter:'chrome.* test double, real Chromium DOM/network/UI',openAndSaveMs,buttonOrder:true,blankTabNavigation:true,existingTabReuse:true,duplicates:true,noLinks:true,liveAdminSettings:true,webpageCannotStart:true,revocation:true,ownerIsolation:true,panelPersonalizedZipDownload:true,adminUrlsOverrideOldLocalSettings:true,workflowStartFetchesLatest:true,managedOptionsReadOnly:true,adminOnlyTrialAlternates:true,liveAlternateReuseAndClearing:true,updateCardClearsAndDoesNotRepeat:true,newAdminHostPermissionRetry:true},null,2));
+  console.log(JSON.stringify({result:'PASS',adapter:'chrome.* test double, real Chromium DOM/network/UI',openAndSaveMs,buttonOrder:true,blankTabNavigation:true,existingTabReuse:true,duplicates:true,noLinks:true,liveAdminSettings:true,webpageCannotStart:true,revocation:true,ownerIsolation:true,panelPersonalizedZipDownload:true,adminUrlsOverrideOldLocalSettings:true,workflowStartFetchesLatest:true,managedOptionsReadOnly:true,dynamicServiceWithoutExtensionDownload:true,customServiceDuplicates:true,adminOnlyTrialAlternates:true,liveAlternateReuseAndClearing:true,updateCardClearsAndDoesNotRepeat:true,newAdminHostPermissionRetry:true},null,2));
 }finally{
   globalThis.fetch=nativeFetch;delete globalThis.chrome;await browser?.close();cloud.closeAllConnections();source.closeAllConnections();await Promise.all([new Promise(r=>cloud.close(r)),new Promise(r=>source.close(r))]);await rm(directory,{recursive:true,force:true});
 }

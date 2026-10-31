@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { SERVICE_NAMES } from '../src/decode.mjs';
+import { SERVICE_NAMES,exportTitle } from '../src/decode.mjs';
 
 export const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const sheetNames = { YouTube: 'YouTube', Lovable: 'Lovable', Notion: 'Notion', NordVPN: 'Nord', Headspace: 'Headspace' };
@@ -13,12 +13,14 @@ export function exportFormat(value = 'txt') {
 // Indexes keep the frozen service grouping without storing every URL twice.
 export function exportWorksheets(rows, urls) {
   const indexes = new Map(urls.map((url, index) => [url, index]));
-  const groups = new Map(SERVICE_NAMES.map(service => [service, new Set()]));
+  const names=[...SERVICE_NAMES,...new Set(rows.map(row=>row.service).filter(name=>!SERVICE_NAMES.includes(name)).sort())];
+  const groups = new Map(names.map(service => [service, new Set()]));
   for (const row of rows) {
-    if (!groups.has(row.service)) throw new Error('A saved link has an unsupported service.');
+    exportTitle(row.service,null);
+    if (!groups.has(row.service)) groups.set(row.service,new Set());
     groups.get(row.service).add(indexes.get(row.url));
   }
-  return SERVICE_NAMES.filter(service => groups.get(service).size).map(service => ({ service, indexes: [...groups.get(service)] }));
+  return [...groups].filter(([,indexes])=>indexes.size).map(([service,indexes])=>({service,indexes:[...indexes]}));
 }
 
 export async function excelBuffer(snapshot) {
@@ -26,10 +28,12 @@ export async function excelBuffer(snapshot) {
   workbook.creator = 'Link Grabber';
   workbook.created = new Date(snapshot.createdAt);
   workbook.modified = new Date(snapshot.createdAt);
+  const used=new Set();
   for (const group of snapshot.worksheets) {
-    const name = sheetNames[group.service];
+    const base=Object.hasOwn(sheetNames,group.service)?sheetNames[group.service]:String(group.service).replace(/[\\/?*:\[\]]/g,'_').replace(/^'+|'+$/g,'').trim()||'Service';
+    let name=base.slice(0,31),n=1;while(used.has(name.toLowerCase())){const suffix=' ('+(++n)+')';name=base.slice(0,31-suffix.length)+suffix;}used.add(name.toLowerCase());
     if (!name || !group.indexes.length) throw new Error('Invalid export worksheet.');
-    const sheet = workbook.addWorksheet(name, { properties: { tabColor: { argb: colors[group.service] } }, views: [{ state: 'frozen', ySplit: 1 }] });
+    const sheet = workbook.addWorksheet(name, { properties: { tabColor: { argb: Object.hasOwn(colors,group.service)?colors[group.service]:'FF709AAE' } }, views: [{ state: 'frozen', ySplit: 1 }] });
     sheet.columns = [{ header: 'Link', key: 'link', width: 120 }];
     sheet.getColumn(1).numFmt = '@';
     sheet.getColumn(1).alignment = { vertical: 'middle', wrapText: false };

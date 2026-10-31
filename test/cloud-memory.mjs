@@ -15,6 +15,8 @@ export class MemoryRepository {
   async upgradePermanentScript(previous,next){const current=this.permanentScripts.get(previous._id);if(current?.revision===previous.revision&&current.authVersion===previous.authVersion)this.permanentScripts.set(next._id,structuredClone(next));return this.permanentScripts.get(previous._id);}
   async globalCaptureSettings(){return this.settings.get('global:capture')?{value:this.settings.get('global:capture')}:null;}
   async saveGlobalCaptureSettings(value){this.settings.set('global:capture',structuredClone(value));}
+  async globalServiceCatalog(){const value=this.settings.get('global:services');return value?{value:structuredClone(value)}:null;}
+  async saveServiceCatalog(previous,value){const current=this.settings.get('global:services');if(previous?current?.revision!==previous.value.revision:!!current){const e=new Error('Services changed in another session.');e.status=409;throw e;}this.settings.set('global:services',structuredClone(value));}
   async globalWorkflowSettings(){const value=this.settings.get('global:workflow');return value?{value:structuredClone(value)}:null;}
   async saveGlobalWorkflowSettings(value){this.settings.set('global:workflow',structuredClone(value));}
   async extensionState(ownerId){return structuredClone(this.extensionUpdates.get(ownerId));}

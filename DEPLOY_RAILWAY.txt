@@ -1,3 +1,16 @@
+SERVICE MANAGEMENT v6.6.0 / EXTENSION v1.11.0
+31 October 2026 (IST)
+Replace all project files (including cloud/services.mjs and public/link-sections.js),
+redeploy Railway, then hard-refresh the panel. No new env variables or DB reset.
+Admin > Manage capture services: name + example URL > Preview > Add service.
+Users of the extension download/reload v1.11.0 once. Older console users are
+prompted once when custom services are enabled; updated extension users need no
+console regeneration. Future service add/remove/restore changes need no code,
+redeploy, new extension ZIP, or further script regeneration. Matcher-only script
+upgrades preserve the existing capture key. See SERVICE_MANAGEMENT.txt.
+
+Earlier deployment notes:
+
 TRIAL ALTERNATE URL UPDATE v6.5.0 / EXTENSION v1.10.0
 30 October 2026 (IST)
 Replace all project files, redeploy Railway, and hard refresh the panel.

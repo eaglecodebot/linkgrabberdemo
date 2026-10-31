@@ -1,6 +1,6 @@
 {
   "name": "link-grabber-web",
-  "version": "6.5.0",
+  "version": "6.6.0",
   "private": true,
   "type": "module",
   "description": "Hosted browser capture, private MongoDB history and admin/user panels",
@@ -12,7 +12,8 @@
     "test": "node --test test/*.test.mjs",
     "test:browser": "node test/browser-web.mjs",
     "test:extension": "node test/browser-extension.mjs",
-    "test:workflow": "node --test cloud/extension-template/tests/checkpoints.mjs cloud/extension-template/tests/wakeup.mjs"
+    "test:workflow": "node --test cloud/extension-template/tests/checkpoints.mjs cloud/extension-template/tests/wakeup.mjs",
+    "test:services": "node test/browser-services.mjs"
   },
   "dependencies": {
     "exceljs": "4.4.0",

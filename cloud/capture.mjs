@@ -1,30 +1,31 @@
+import {serviceCatalog,catalogPolicy} from './services.mjs';
 import {workflowSettings} from './workflow-settings.mjs';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { hashToken } from './auth.mjs';
 import { pageMatches } from '../src/rules.mjs';
-import { perkLink, SERVICE_NAMES, DEFAULT_SERVICES, SERVICE_RULES } from '../src/decode.mjs';
+import { matchRewardLink, SERVICE_NAMES, DEFAULT_SERVICES } from '../src/decode.mjs';
 import { makeWebScript } from '../src/web-capture.mjs';
 import { sealScript, openScript } from './script-vault.mjs';
 
-export function cleanSettings(input) {
+export function cleanSettings(input,available=SERVICE_NAMES) {
   const pagePattern=String(input.pagePattern||'').trim();
   if(!/^https?:\/\//.test(pagePattern)||pagePattern.length>2000)throw new Error('Enter the final main webpage URL, optionally with * in its path/query.');
   let parsed;try{parsed=new URL(pagePattern);}catch{throw new Error('Invalid main webpage URL.');}
   if(parsed.username||parsed.password||parsed.hostname.includes('*'))throw new Error('Use an exact website hostname; wildcards belong in the path/query only.');
   const selected=input.enabledServices===undefined?DEFAULT_SERVICES:input.enabledServices;
-  if(!Array.isArray(selected)||selected.some(service=>!SERVICE_NAMES.includes(service)))throw new Error('Choose only the supported capture services.');
-  return {pagePattern,enabledServices:SERVICE_NAMES.filter(service=>selected.includes(service)),label:'Browser capture'};
+  if(!Array.isArray(selected)||selected.some(service=>!available.includes(service)))throw new Error('Choose only the supported capture services.');
+  return {pagePattern,enabledServices:available.filter(service=>selected.includes(service)),label:'Browser capture'};
 }
 export async function captureSettings(repo) {
-  const saved=(await repo.globalCaptureSettings())?.value;
-  return saved?{...cleanSettings(saved),configured:true,availableServices:SERVICE_NAMES}:{pagePattern:'',enabledServices:[...DEFAULT_SERVICES],label:'Browser capture',configured:false,availableServices:SERVICE_NAMES};
+  const saved=(await repo.globalCaptureSettings())?.value,catalog=await serviceCatalog(repo),policy=catalogPolicy(catalog,saved);
+  return saved?{...cleanSettings({...saved,enabledServices:policy.enabledServices},policy.availableServices),configured:true,...policy}:{pagePattern:'',label:'Browser capture',configured:false,...policy};
 }
 // Script reads never create replacements. Only an explicit regeneration action
 // writes a new key. A separate version invalidates manual revocations without
 // logging out the user; password/access changes also advance authVersion.
 export function revocation(code, reason) { return {code, reason, at:new Date().toISOString()}; }
 const scriptVersion = value => Number(value?.scriptVersion) || 0;
-function scriptStatus(user, record, panelOrigin) {
+function scriptStatus(user, record, panelOrigin,minimumEngine=6) {
   const state=(status,code,reason,canRegenerate=true)=>({status,code,reason,canRegenerate,revokedAt:user.scriptRevocation?.at||null,scriptId:null});
   if(!user.active)return state('revoked','account-disabled','Your account was disabled by an administrator. Contact the administrator to restore access.',false);
   if(!record||record.authVersion!==user.authVersion||scriptVersion(record)!==scriptVersion(user)){
@@ -34,6 +35,7 @@ function scriptStatus(user, record, panelOrigin) {
   }
   if((Number(record.engineVersion)||0)<6)return state('replacement-required','engine-update','The capture engine was updated. Your earlier script needs a replacement.');
   if(record.panelOrigin&&record.panelOrigin!==panelOrigin)return state('replacement-required','panel-address-changed','The panel address changed. Regenerate your script for the current address.');
+  if((Number(record.engineVersion)||0)<minimumEngine)return {...state('replacement-required','service-matcher-update','New capture services need the updated console matcher. Regenerate your script once. The updated extension can keep its existing connection.'),extensionAllowed:true};
   return {status:'active',code:'active',reason:'Your private script is active.',canRegenerate:false,scriptId:record.revision,revokedAt:null};
 }
 async function currentScriptUser(repo,user){
@@ -43,25 +45,30 @@ async function currentScriptUser(repo,user){
 }
 export async function captureScriptStatus(repo,user,panelOrigin) {
   const record=await repo.permanentScript(user._id);
-  return scriptStatus(await currentScriptUser(repo,user),record,panelOrigin);
+  return scriptStatus(await currentScriptUser(repo,user),record,panelOrigin,(await captureSettings(repo)).requiresDynamicMatcher?7:6);
 }
-export async function readCaptureScript(repo,user,panelOrigin,scriptSecret) {
-  const record=await repo.permanentScript(user._id);user=await currentScriptUser(repo,user);const status=scriptStatus(user,record,panelOrigin);
+export async function readCaptureScript(repo,user,panelOrigin,scriptSecret,{forExtension=false}={}) {
+  const record=await repo.permanentScript(user._id);user=await currentScriptUser(repo,user);const status=scriptStatus(user,record,panelOrigin,!forExtension&&(await captureSettings(repo)).requiresDynamicMatcher?7:6);
   if(status.status!=='active'){const e=new Error(status.reason);e.status=409;e.scriptStatus=status;throw e;}
   const script=openScript(record,scriptSecret);
   // Older v6 records predate the panelOrigin metadata field.
   const storedOrigin=record.panelOrigin||script.match(/"panelOrigin":"([^"\n]+)"/)?.[1];
   if(storedOrigin&&storedOrigin!==panelOrigin){const e=new Error('The panel address changed. Regenerate your script for the current address.');e.status=409;e.scriptStatus={status:'replacement-required',code:'panel-address-changed',reason:e.message,canRegenerate:true,scriptId:null,revokedAt:null};throw e;}
-  return {script,scriptStatus:status,owner:{username:user.username,name:user.name},permanent:true,scriptId:record.revision,engineVersion:6,expiresAt:null};
+  return {script,scriptStatus:status,owner:{username:user.username,name:user.name},permanent:true,scriptId:record.revision,engineVersion:record.engineVersion,expiresAt:null};
 }
 export async function createCaptureScript(repo,user,panelOrigin,scriptSecret) {
-  const previous=await repo.permanentScript(user._id);
-  if(scriptStatus(user,previous,panelOrigin).status==='active'){
+  const previous=await repo.permanentScript(user._id),currentSettings=await captureSettings(repo),status=scriptStatus(user,previous,panelOrigin,currentSettings.requiresDynamicMatcher?7:6);
+  if(status.status==='active'){
     try{return await readCaptureScript(repo,user,panelOrigin,scriptSecret);}catch(e){if(e.scriptStatus?.code!=='panel-address-changed')throw e;}
   }
-  const token=randomBytes(32).toString('hex');
-  const candidate={_id:user._id,authVersion:user.authVersion,scriptVersion:scriptVersion(user),revision:randomUUID(),keyHash:hashToken(token),username:user.username,engineVersion:6,panelOrigin,createdAt:new Date()};
-  candidate.ciphertext=sealScript(makeWebScript({panelOrigin,captureKey:token,username:user.username,bootstrapRules:SERVICE_RULES}),candidate,scriptSecret);
+  const migrationScript=status.code==='service-matcher-update'?openScript(previous,scriptSecret):'';
+  const migrationKey=migrationScript.match(/"captureKey":"([a-f0-9]{64})"/)?.[1];
+  if(status.code==='service-matcher-update'&&!migrationKey)throw new Error('Could not read your current capture connection.');
+  const previousOrigin=previous?.panelOrigin||migrationScript.match(/"panelOrigin":"([^"\n]+)"/)?.[1];
+  const retained=(!previousOrigin||previousOrigin===panelOrigin)?migrationKey:null;
+  const token=retained||randomBytes(32).toString('hex');
+  const candidate={_id:user._id,authVersion:user.authVersion,scriptVersion:scriptVersion(user),revision:randomUUID(),keyHash:hashToken(token),username:user.username,engineVersion:7,panelOrigin,createdAt:new Date()};
+  candidate.ciphertext=sealScript(makeWebScript({panelOrigin,captureKey:token,username:user.username,bootstrapRules:currentSettings.rules}),candidate,scriptSecret);
   await repo.installPermanentScript(previous,candidate);
   const currentUser=await repo.userById(user._id);
   if(!currentUser?.active||currentUser.authVersion!==user.authVersion||scriptVersion(currentUser)!==scriptVersion(user)){
@@ -78,6 +85,7 @@ async function resolveCapture(repo,packet,requireCapturePolicy=true) {
   if(!user?.active||user.authVersion!==key.authVersion||scriptVersion(user)!==scriptVersion(key))fail((user?.scriptRevocation?.reason||'Capture access was revoked.')+' Log in to the panel and regenerate your script.',401);
   if(packet.version!==6||!key.permanent)fail('Copy the updated permanent script from your panel once to use the admin service selector.',426);
   const current=await captureSettings(repo);
+  if(requireCapturePolicy&&current.requiresDynamicMatcher&&packet.matcherVersion!==2)fail('New services require the updated matcher. Regenerate the console script or download/reload the updated extension from your panel once.',426);
   if(requireCapturePolicy&&!current.configured)fail('The administrator must configure the main webpage first.',409);
   if(requireCapturePolicy&&!current.enabledServices.length)fail('Capturing is paused by the administrator. No services are enabled.',403);
   return {key,user,current,fail};
@@ -93,11 +101,11 @@ export async function extensionWorkflowConfiguration(repo,packet){
 }
 export async function extensionConfiguration(repo,packet) {
   const {user,current}=await resolveCapture(repo,packet);
-  return {owner:{username:user.username,name:user.name},settings:{...current,rules:SERVICE_RULES}};
+  return {owner:{username:user.username,name:user.name},settings:{...current}};
 }
 export async function captureConfiguration(repo,packet,requestOrigin,panelOrigin) {
   const {user,current,fail}=await resolveCapture(repo,packet);validateSource(packet,requestOrigin,panelOrigin,current,fail);
-  return {owner:{username:user.username,name:user.name},settings:{...current,rules:SERVICE_RULES}};
+  return {owner:{username:user.username,name:user.name},settings:{...current}};
 }
 export async function acceptCapture(repo,packet,requestOrigin,panelOrigin) {
   const {key,user,current,fail}=await resolveCapture(repo,packet);validateSource(packet,requestOrigin,panelOrigin,current,fail);
@@ -105,7 +113,7 @@ export async function acceptCapture(repo,packet,requestOrigin,panelOrigin) {
   if(!Array.isArray(packet.links)||packet.links.length>5000)fail('Invalid link list.');
   const unique=new Map();let selectedOccurrences=0,ignored=0;
   for(const item of packet.links){
-    if(!item||typeof item.url!=='string')fail('Invalid reward link.');const link=perkLink(item.url);if(!link)fail('An unsupported reward link was submitted.');
+    if(!item||typeof item.url!=='string')fail('Invalid reward link.');const link=matchRewardLink(item.url,current.rules);if(!link){if(packet.rawCandidates===true){ignored++;continue;}fail('An unsupported reward link was submitted.');}
     if(!current.enabledServices.includes(link.service)){ignored++;continue;}
     selectedOccurrences++;unique.set(link.url,{...link,label:String(item.label||'').slice(0,1000)});
   }
@@ -117,6 +125,7 @@ export async function acceptCapture(repo,packet,requestOrigin,panelOrigin) {
   const rows=[...unique.values()].map(link=>({_id:hashToken(user._id+'\0'+link.url),url:link.url,service:link.service,profile_id:'web-'+hashToken(label).slice(0,24),profile_name:label,account_name:'Web capture',label:link.label,source_url:packet.sourceUrl,title:String(packet.title||'').slice(0,1000),first_seen:at,last_seen:at,exported:false}));
   const added=await repo.captureWebLinks(user._id,rows,packet.batchId);
   const repeated=current.enabledServices.reduce((sum,service)=>sum+(Number.isInteger(packet.repeatedByService?.[service])&&packet.repeatedByService[service]>0?Math.min(5000,packet.repeatedByService[service]):0),0)+Math.max(0,selectedOccurrences-unique.size);
-  const duplicates=unique.size-added+repeated;
+  const rawRepeated=packet.rawCandidates===true?[...unique.keys()].reduce((sum,url)=>sum+(Number.isInteger(packet.rawRepeatedByUrl?.[url])&&packet.rawRepeatedByUrl[url]>0?Math.min(5000,packet.rawRepeatedByUrl[url]):0),0):0;
+  const duplicates=unique.size-added+repeated+rawRepeated;
   return {...base,added,duplicates,level:duplicates?(added?'warning':'error'):'success',code:duplicates?'duplicates':'saved',message:duplicates?(added?added+' new links saved. '+duplicates+' duplicate links skipped.':'Duplicate links found. '+duplicates+' already saved or repeated; nothing added.'):added+' new links saved. You can continue.'};
 }

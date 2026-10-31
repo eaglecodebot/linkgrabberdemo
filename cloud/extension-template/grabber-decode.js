@@ -37,6 +37,10 @@ function matchRewardLink(input,rules) {
   const u=new URL(decoded.url),path=u.pathname.toLowerCase();
   for(const rule of rules){
     if(!rule.hosts.includes(decoded.host))continue;
+    if(rule.exactPath!==undefined){
+      if(u.pathname===rule.exactPath&&(rule.queryAll||[]).every(key=>!!u.searchParams.get(key)))return {...decoded,service:rule.service};
+      continue;
+    }
     const query=(rule.queryAny||[]).some(key=>!!u.searchParams.get(key));
     const prefix=(rule.pathPrefixes||[]).some(p=>path===p||path.startsWith(p+'/'));
     const contains=(rule.pathContains||[]).some(p=>path.includes(p));
@@ -48,5 +52,4 @@ function perkLink(input){return matchRewardLink(input,SERVICE_RULES);}
 
 
 globalThis.__linkGrabberDecode={decodeLink,matchRewardLink};
-
 })();

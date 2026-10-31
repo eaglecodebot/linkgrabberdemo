@@ -1,5 +1,6 @@
 const $ = id => document.getElementById(id);
 let token = sessionStorage.getItem('lg-cloud-token') || '', me = null, users = [], refreshVersion = 0, scriptRequest = 0, scriptMutation = false, displayedScriptId = '';
+let catalogRevision=-1,serviceDraft=null,scriptUpdateNotice='';
 let noticeTimer=null,noticeDuration=4000,backgroundError='',extensionState=null,captureActive=false,extensionRefresh=null,extensionDownloading=false;
 function dismissNotice(){clearTimeout(noticeTimer);noticeTimer=null;$('notice').hidden=true;}
 function scheduleNotice(){clearTimeout(noticeTimer);if(!$('notice').hidden)noticeTimer=setTimeout(dismissNotice,noticeDuration);}
@@ -26,13 +27,15 @@ async function request(path, data) {
 }
 async function api(path,data){return (await request(path,data)).json();}
 function clearScript(){captureActive=false;$('download-extension').disabled=true;displayedScriptId='';$('console-script').value='';$('script-area').hidden=true;$('script-area').open=false;$('generate-script').hidden=true;$('download-extension').hidden=true;$('revoke-scripts').hidden=true;if(me)sessionStorage.removeItem('lg-web-script:'+me.id);}
-function signOut() {extensionRefresh=null;extensionState=null;$('extension-update').hidden=true;scriptRequest++;clearScript();$('script-status').hidden=false;$('script-status-title').textContent='Checking script…';$('script-status-reason').textContent='';$('regenerate-script').hidden=true;$('retry-script-status').hidden=true;token='';me=null;refreshVersion++;sections.reset();$('exports').replaceChildren();sessionStorage.removeItem('lg-cloud-token');$('workspace').hidden=true;$('login-card').hidden=false;$('auth-loading').hidden=true;$('logout').hidden=true;}
+function signOut() {catalogRevision=-1;scriptUpdateNotice='';extensionRefresh=null;extensionState=null;$('extension-update').hidden=true;scriptRequest++;clearScript();$('script-status').hidden=false;$('script-status-title').textContent='Checking script…';$('script-status-reason').textContent='';$('regenerate-script').hidden=true;$('retry-script-status').hidden=true;token='';me=null;refreshVersion++;sections.reset();$('exports').replaceChildren();sessionStorage.removeItem('lg-cloud-token');$('workspace').hidden=true;$('login-card').hidden=false;$('auth-loading').hidden=true;$('logout').hidden=true;}
 function renderScriptStatus(status){
- const active=status.status==='active';captureActive=active;$('download-extension').disabled=!active||extensionDownloading;
+ const active=status.status==='active',extensionAllowed=active||status.extensionAllowed;captureActive=extensionAllowed;$('download-extension').disabled=!active||extensionDownloading;
  $('script-status').hidden=active;$('retry-script-status').hidden=true;
- if(!active){clearScript();$('script-status-title').textContent=status.status==='missing'?'Generate your private script':'Script revoked · replacement required';$('script-status-reason').textContent=status.reason;}
+ if(!active){clearScript();$('script-status-title').textContent=status.status==='missing'?'Generate your private script':status.code==='service-matcher-update'?'Console script update required':'Script revoked · replacement required';$('script-status-reason').textContent=status.reason;}
  $('regenerate-script').hidden=!status.canRegenerate;
  $('regenerate-script').textContent=status.status==='missing'?'Generate script':'Regenerate script';
+ if(extensionAllowed){captureActive=true;$('download-extension').hidden=false;$('download-extension').disabled=extensionDownloading;$('revoke-scripts').hidden=false;}
+ if(status.code==='service-matcher-update'&&scriptUpdateNotice!==status.code){scriptUpdateNotice=status.code;note('New services are enabled. Regenerate your console script once, or use the updated extension.','warning');}
  if(active){$('download-extension').hidden=false;$('generate-script').hidden=false;$('revoke-scripts').hidden=false;}
  renderExtensionRelease();
 }
@@ -78,7 +81,9 @@ async function renderUsers() {
   $('history-user').value = selected; if (!$('history-user').value) $('history-user').value = me.id;
 }
 function renderSettings(settings, editForm = false) {
+ sections.setServices(settings.historyServices||settings.availableServices);
  sections.setEnabledServices(settings.enabledServices);
+ renderServiceSwitches(settings,editForm);
  $('configured-page').textContent=settings.configured?settings.pagePattern:'The administrator must configure the main webpage.';
  $('configured-services').textContent=settings.enabledServices.length?settings.enabledServices.join(', '):'Capture paused — no services enabled';
  if(editForm&&me?.role==='admin'){
@@ -93,7 +98,7 @@ async function enter() {
  $('capture-owner').textContent='Saving to: '+me.username;
  $('admin').hidden=me.role!=='admin'; $('history-user').hidden=me.role!=='admin';
  renderSettings((await api('settings')).settings,true);
- if(me.role==='admin')renderWorkflowSettings((await api('workflow-settings')).workflowUrls);
+ if(me.role==='admin'){renderWorkflowSettings((await api('workflow-settings')).workflowUrls);await loadServiceCatalog();}
  sessionStorage.removeItem('lg-web-script:'+me.id);
  await checkScript();
  if(!me)return;await renderUsers();await refresh();
@@ -103,7 +108,7 @@ $('settings-form').onsubmit=run(async()=>{
  const enabledServices=[...document.querySelectorAll('input[name="service"]:checked')].map(input=>input.value);
  await api('settings',{pagePattern:$('page-pattern').value,enabledServices});
  renderSettings((await api('settings')).settings,true);
- note('Capture settings saved for all users. Their current v6 scripts use the changes automatically.','success');
+ note('Capture settings saved for all users. Current capture clients use the changes automatically. Older matchers receive an update prompt when needed.','success');
 });
 async function copyMine(){
  const session=token,request=++scriptRequest;
@@ -130,6 +135,7 @@ async function refresh() {
     const settings=await api('settings');
     if(ownVersion!==refreshVersion||!me)return;
     renderSettings(settings.settings);
+    if(me.role==='admin'&&catalogRevision!==settings.settings.serviceCatalogRevision)await loadServiceCatalog();
     await refreshExtensionRelease();
     if(ownVersion!==refreshVersion||!me)return;
     const p = params();
@@ -218,3 +224,33 @@ async function downloadMyExtension(){
  }finally{extensionDownloading=false;renderExtensionRelease();}
 }
 $('download-extension').onclick=run(downloadMyExtension);
+
+function renderServiceSwitches(settings,editForm){
+ const container=$('capture-service-switches'),names=settings.availableServices;
+ const existing=new Map([...container.querySelectorAll('input')].map(n=>[n.value,n.checked]));
+ if(JSON.stringify([...existing.keys()])!==JSON.stringify(names)||editForm){
+  container.replaceChildren(...names.map(name=>{const label=el('label');label.className='check';const input=el('input');input.type='checkbox';input.name='service';input.value=name;input.checked=!editForm&&existing.has(name)?existing.get(name):settings.enabledServices.includes(name);label.append(input,document.createTextNode(name));return label;}));
+ }
+}
+async function loadServiceCatalog(){
+ if(me?.role!=='admin')return;
+ const {catalog}=await api('admin/services');catalogRevision=catalog.revision;
+ $('service-catalog').replaceChildren(...catalog.services.map(item=>{
+  const row=el('div');row.className='profile-item';const info=el('div');
+  const rule=item.rule;info.append(el('strong',item.name+(item.removed?' · removed':'')),el('small',rule.hosts.join(', ')+(rule.exactPath!==undefined?' · '+rule.exactPath:'')+' · parameters: '+(rule.queryAll||rule.queryAny||[]).join(', ')));
+  row.append(info,action(item.removed?'Restore':'Remove',()=>modifyService(item.removed?'restore':'remove',item.name)));return row;
+ }));
+}
+async function modifyService(kind,name){
+ const result=await api('admin/services',{action:kind,name,revision:catalogRevision,...(kind==='add'?{sampleUrl:$('service-sample').value}:{})});
+ renderSettings(result.settings,true);await loadServiceCatalog();await refresh();await checkScript();
+ note(kind==='remove'?'Service removed. Its saved history remains available.':kind==='restore'?'Service restored and enabled.':'Service added and enabled. Users with current capture clients need no new script or extension.','success');
+ if(kind==='add'){$('service-name').value='';$('service-sample').value='';serviceDraft=null;$('service-preview').hidden=true;}
+}
+$('service-form').onsubmit=run(async()=>{
+ const name=$('service-name').value,sampleUrl=$('service-sample').value;
+ const {draft}=await api('admin/services/preview',{name,sampleUrl});if(name!==$('service-name').value||sampleUrl!==$('service-sample').value)return;serviceDraft=draft;
+ $('service-preview-text').textContent=draft.name+' → '+draft.preview.host+draft.preview.path+' · required parameters: '+(draft.preview.requiredParameters.join(', ')||'none');$('service-preview').hidden=false;
+});
+for(const id of ['service-name','service-sample'])$(id).oninput=()=>{serviceDraft=null;$('service-preview').hidden=true;};
+$('add-service').onclick=run(async()=>{if(!serviceDraft)throw new Error('Preview the service first.');await modifyService('add',serviceDraft.name);});

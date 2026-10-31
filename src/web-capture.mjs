@@ -23,17 +23,17 @@ export function captureOnWeb(config, consoleCopy) {
   function show(level,title,text){if(stopped)return;identify();const colors={success:['#154d39','#448969'],error:['#662c32','#b8666d'],warning:['#624719','#b18d42'],info:['#172436','#49607a']};const c=colors[level]||colors.info;host.style.background=c[0];host.style.borderColor=c[1];host.dataset.level=level;heading.textContent=title;message.textContent=text;actions.replaceChildren();button('Close',stop);}
   function finish(result){if(stopped)return;identify(result.owner);stopScanning();show(result.level,result.code==='duplicates'?'Duplicate links found':result.level==='error'?'Capture error':'Links saved',result.message);if(result.code==='save-unconfirmed')button('Retry save window',()=>openSaveWindow(packet?'save':'setup'));}
   function collect(){
-    const links=new Map(),repeatedByService={};const rules=settings?.rules||config.bootstrapRules;
+    const links=new Map(),repeatedByService={},rawRepeatedByUrl={};const rules=settings?.rules||config.bootstrapRules;
     for(const a of document.querySelectorAll('a[href]')){
       const raw=a.getAttribute('href');if(!raw)continue;let absolute;try{absolute=new URL(raw,document.baseURI).href;}catch{continue;}
-      const decoded=matchRewardLink(absolute,rules);if(!decoded||settings&&!settings.enabledServices.includes(decoded.service))continue;
-      if(links.has(decoded.url))repeatedByService[decoded.service]=Math.min(5000,(repeatedByService[decoded.service]||0)+1);
+      const decoded=settings?matchRewardLink(absolute,rules):decodeLink(absolute);if(!decoded||settings&&!settings.enabledServices.includes(decoded.service))continue;
+      if(links.has(decoded.url)){if(settings)repeatedByService[decoded.service]=Math.min(5000,(repeatedByService[decoded.service]||0)+1);else rawRepeatedByUrl[decoded.url]=Math.min(5000,(rawRepeatedByUrl[decoded.url]||0)+1);}
       links.set(decoded.url,{url:decoded.url,service:decoded.service,label:(a.innerText||a.textContent||decoded.service).replace(/\s+/g,' ').trim().slice(0,1000)});if(links.size>=5000)break;
     }
-    return{links:[...links.values()],repeatedByService};
+    return{links:[...links.values()],repeatedByService,rawRepeatedByUrl:settings?undefined:rawRepeatedByUrl};
   }
   function missingServices(value){const present=new Set(value.links.map(link=>link.service));return settings.enabledServices.filter(service=>!present.has(service));}
-  function snapshot(){return{version:6,captureKey:config.captureKey,batchId:runId,startedAt,sourceUrl:location.href,title:document.title.slice(0,1000),username:owner,...collect()};}
+  function snapshot(){return{version:6,matcherVersion:2,captureKey:config.captureKey,batchId:runId,startedAt,sourceUrl:location.href,title:document.title.slice(0,1000),username:owner,rawCandidates:!settings,...collect()};}
   function bounded(value){return new TextEncoder().encode(JSON.stringify(value)).length<=2*1024*1024;}
   async function request(path,value,timeoutMs){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);try{const response=await fetch(config.panelOrigin+'/api/'+path,{method:'POST',mode:'cors',credentials:'omit',redirect:'error',headers:{'Content-Type':'application/json'},body:JSON.stringify(value),signal:controller.signal});const data=await response.json();if(!response.ok){const e=new Error(data.error||'The request was rejected.');e.server=true;throw e;}return data;}finally{clearTimeout(timer);}}
   function manualCopy(){const value=packet||snapshot();if(!bounded(value)){show('error','Capture too large','The capture exceeds 2 MiB. Nothing confirmed saved.');return;}const text='LG_WEB_V6:'+JSON.stringify(value);if(typeof consoleCopy==='function'){try{consoleCopy(text);show('warning','Capture packet copied','Paste it into Manual capture handoff in your Railway panel and confirm the result there.');return;}catch{}}
@@ -65,7 +65,7 @@ export function captureOnWeb(config, consoleCopy) {
     if(event.data.type==='LG_RESULT_V6'){const r=event.data.result;if(!r||!['success','warning','error'].includes(r.level)||typeof r.message!=='string'||r.message.length>1000)return;finish(r);try{popup.postMessage({type:'LG_ACK_V6',batchId:runId},config.panelOrigin);}catch{}}
   }
   window[namespace]={stop};window.addEventListener('message',receive);identify();show('info','Loading current settings','Checking this script and account with Railway…');
-  void request('capture-config',{version:6,captureKey:config.captureKey,sourceUrl:location.href},2000).then(data=>configure(data,'direct')).catch(e=>{if(stopped)return;if(e.server)show('error','Capture error',e.message);else openSaveWindow('setup');});
+  void request('capture-config',{version:6,matcherVersion:2,captureKey:config.captureKey,sourceUrl:location.href},2000).then(data=>configure(data,'direct')).catch(e=>{if(stopped)return;if(e.server)show('error','Capture error',e.message);else openSaveWindow('setup');});
   return 'Permanent Link Grabber started. Confirm Saving to: '+owner+' and wait for the result.';
 }
 export function makeWebScript(config){return '// Link Grabber Web v6 — private permanent script for '+config.username+'.\n'+'// Reusable until explicitly revoked, the password changes, or the account is disabled.\n'+`(() => {\n${pageMatches.toString()}\n${decodeLink.toString()}\n${matchRewardLink.toString()}\nreturn (${captureOnWeb.toString()})(${JSON.stringify(config)},typeof copy==='function'?copy:null);\n})();`;}

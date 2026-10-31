@@ -32,7 +32,7 @@ async function save(){
 async function setup(){
  display('info','Loading current page settings…');
  try{
-  const config=await post('capture-config',{version:6,captureKey:packet.captureKey,sourceUrl:packet.sourceUrl});identify(config.owner);
+  const config=await post('capture-config',{version:6,matcherVersion:packet.matcherVersion,captureKey:packet.captureKey,sourceUrl:packet.sourceUrl});identify(config.owner);
   display('info','Waiting for the source page to send its current links…');
   const send=()=>{try{window.opener?.postMessage({type:'LG_CONFIG_V6',batchId:packet.batchId,...config},sourceOrigin);}catch{}};
   if(window.opener){send();configTimer=setInterval(send,300);}

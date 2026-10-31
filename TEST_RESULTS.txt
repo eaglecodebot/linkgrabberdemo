@@ -1,3 +1,37 @@
+VERIFICATION - LINK GRABBER WEB v6.6.0 / EXTENSION v1.11.0
+31 October 2026 (IST)
+
+58 API/logic tests and 39 workflow state/wakeup tests pass (97 total).
+- Service sample inference, exact path/all-parameter matching, encoded code
+  preservation, host lookalikes, invalid names/URLs and overlapping rules.
+- Admin-only catalog writes; optimistic Mongo revision updates prevent stale
+  concurrent edits. Sample parameter values are absent from catalog data.
+- Legacy built-in selection persists. Adding/restoring enables a service;
+  disabling/removing excludes it without deleting its definition/history.
+- Old console matcher is prompted only when custom matching is required; the
+  updated extension works/downloads before that console regeneration. The
+  matcher-only upgrade retains its key, new scripts stay identical across
+  later catalog edits, and service changes leave extension release IDs intact.
+- Dynamic capture, unrelated raw fallback filtering, duplicate/repeated link
+  handling, grouped TXT and separate Excel sheets with safe unique names.
+  Both snapshot formats still download after the service is removed.
+- Real Chromium admin UI preview/add/remove, hidden user setup, dynamic count
+  tabs, one-time console update state, same script for later services, direct
+  and strict-CSP captures, retained export/history and mobile layout passed.
+- Integrated extension browser suite captures newly added services and changed
+  codes with the same installed files/connection. Duplicate errors, live admin
+  workflow URL settings, access changes and private ZIP downloads still pass.
+- Full web browser suite passes capture, fallback, owner isolation, all toast
+  expiry levels, service tabs, dark panels, TXT/Excel exports and revocation.
+- New admin service form was visually inspected in Chromium. Dependency lock
+  trees and all Trial/Cancel workflow runtime/color files match v6.5.0 exactly.
+
+Browser tests use real DOM/HTTP/navigation with a test adapter for extension
+APIs. Native GoLogin installation and production MongoDB/website operations are
+not tested here. No live trial, payment, cancellation/refund or redemption ran.
+
+Historical verification follows:
+
 VERIFICATION - LINK GRABBER WEB v6.5.0 / EXTENSION v1.10.0
 30 October 2026 (IST)
 

@@ -28,6 +28,12 @@ export class Repository {
   async upgradePermanentScript(previous,next){await this.permanentScripts.replaceOne({_id:previous._id,revision:previous.revision,authVersion:previous.authVersion},next);return this.permanentScript(previous._id);}
   globalCaptureSettings(){return this.settings.findOne({_id:'global:capture'});}
   saveGlobalCaptureSettings(value){return this.settings.updateOne({_id:'global:capture'},{$set:{value}},{upsert:true});}
+  globalServiceCatalog(){return this.settings.findOne({_id:'global:services'});}
+  async saveServiceCatalog(previous,value){
+    if(!previous){try{await this.settings.insertOne({_id:'global:services',value});return;}catch(e){if(e.code!==11000)throw e;}}
+    else{const result=await this.settings.updateOne({_id:'global:services','value.revision':previous.value.revision},{$set:{value}});if(result.matchedCount)return;}
+    const e=new Error('Services changed in another session. Reload and try again.');e.status=409;throw e;
+  }
   globalWorkflowSettings(){return this.settings.findOne({_id:'global:workflow'});}
   saveGlobalWorkflowSettings(value){return this.settings.updateOne({_id:'global:workflow'},{$set:{value}},{upsert:true});}
   extensionState(ownerId){return this.extensionUpdates.findOne({_id:ownerId});}
@@ -70,7 +76,7 @@ export class Repository {
   }
   filter(ownerId, params) {
     const filter = { ownerId };
-    if (params.service) { exportTitle(params.service); filter.service = params.service; }
+    if (params.service) { exportTitle(params.service,null); filter.service = params.service; }
     if (params.status === 'new') filter.exported = false;
     if (params.status === 'exported') filter.exported = true;
     if (params.q) {
