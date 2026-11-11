@@ -1,3 +1,32 @@
+LINK GRABBER WEB v6.6.1 / COMBINED EXTENSION v1.11.1
+11 November 2026 (IST)
+
+PRIVATE WORKFLOW v1.7.7 MERGE
+The Career Redeem button uses its stable data attribute inside the form, with
+plan classes and the captured form/role/text selector as fallbacks. Minor offer
+wording and generated Ember ID changes do not affect its primary match.
+Redeem/Individual controls can be found on the main page while the older survey
+iframe remains present. A scoped probe chooses the correct page/frame; disabled,
+busy, covered or ambiguous controls still wait for one ready target.
+
+Grab Links, private user connections, admin-managed workflow URLs/alternates,
+dynamic service configuration and notification colors remain included.
+Console capture scripts and service catalogs do not need regeneration for this
+workflow-only update. The existing release notice announces the new extension.
+
+APPLY THE UPDATE
+1. Replace the GitHub project files and redeploy Railway. Hard refresh the panel.
+2. Stop any active workflow. Download your own updated extension from the panel.
+3. Replace the files in the SAME installed extension folder, then press Reload
+   on chrome://extensions (or the browser's extensions page).
+4. Refresh already-open website tabs. The extension should show v1.11.1.
+5. Start a fresh workflow. Older workflow revision snapshots stop on upgrade.
+
+No new env variables, database migration or active-script regeneration required.
+Keep the current MongoDB database and SCRIPT_ENCRYPTION_KEY.
+
+Earlier extension notes follow:
+
 DYNAMIC CAPTURE SERVICES - v1.11.0
 31 October 2026 (IST)
 Grab Links fetches the current admin-managed service catalog on every capture.
@@ -6,7 +35,7 @@ Dynamic rules check domain, exact path and required URL parameter names. The
 server validates matches again before saving. Existing workflow actions, Trial
 alternates, admin workflow URLs and capture notification colors are unchanged.
 
-PRIVATE WORKFLOW RUNNER v1.11.0 - PERSONAL LINK GRABBER
+PRIVATE WORKFLOW RUNNER v1.11.1 - PERSONAL LINK GRABBER
 30 October 2026 (IST)
 
 Buttons: Trial | Grab Links | Cancel & Refund.

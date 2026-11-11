@@ -93,6 +93,15 @@ export function contextPlan(run, step) {
   if (!step) return {available: false, hops: []};
   let frameId = 0, prefix = [];
   const context = step.context || [], hops = [];
+  // A newly captured plan may be on the main page while an older survey
+  // iframe remains mounted. Probe only the configured stable plan controls.
+  if (step.topLevelTarget && context.some(part => part.kind === 'frame')) {
+    const key = JSON.stringify(['target', step.id]);
+    hops.push({key, kind: 'target', parentFrameId: 0, prefix: [], css: step.topLevelTarget});
+    const inventory = run.frameInventory?.[key];
+    if (!inventory?.ready || Date.now() - inventory.probedAt > 1500) return {available: false, hops, reason: 'Checking whether the plan is on the main page or in the captured frame.'};
+    if (inventory.visibleCount > 0) return {available: true, frameId: 0, step: {...step, context: []}, hops, fallback: true};
+  }
   for (let i = 0; i < context.length; i++) {
     const part = context[i];
     if (part.kind !== 'frame') { prefix.push(part); continue; }

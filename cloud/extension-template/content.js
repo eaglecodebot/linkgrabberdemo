@@ -55,9 +55,9 @@
       discoveryAt.set(item.key, Date.now());
       const info = E.inspectFrame(item.prefix, item.css);
       const target = info.count === 1 ? info.elements[0] : null;
-      const sourceUrl = target ? new URL(target.getAttribute('src') || 'about:blank', target.ownerDocument.baseURI).href : '';
+      const sourceUrl = target && item.kind !== 'target' ? new URL(target.getAttribute('src') || 'about:blank', target.ownerDocument.baseURI).href : '';
       const report = await send({type: 'FRAME_REPORT', runId: packet.runId, key: item.key, nonce: item.nonce, count: info.count, visibleCount: info.visibleCount, ready: info.ready, sourceUrl});
-      if (report?.active && target && info.visibleCount === 1) target.contentWindow?.postMessage({kind: 'PWR_BIND_FRAME_V1', runId: packet.runId, nonce: item.nonce}, '*');
+      if (item.kind !== 'target' && report?.active && target && info.visibleCount === 1) target.contentWindow?.postMessage({kind: 'PWR_BIND_FRAME_V1', runId: packet.runId, nonce: item.nonce}, '*');
     }
   }
   async function tick() {

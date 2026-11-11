@@ -169,14 +169,20 @@
       "id": "redeem",
       "title": "Redeem the one-month offer",
       "action": "click",
+      "topLevelTarget": "form button:is([data-view-name=\"premium-checkout-primary-cta-action\"], .premium-chooser__cta.premium-chooser__pdr-cta)",
       "locators": [
         {
           "css": "form button[data-view-name=\"premium-checkout-primary-cta-action\"]",
-          "text": "Redeem 1 month for ₹0"
+          "authoritative": true
+        },
+        {
+          "css": "form button.premium-chooser__cta.premium-chooser__pdr-cta",
+          "authoritative": true
         },
         {
           "css": "form > div > button[role=\"link\"]",
-          "text": "Redeem 1 month for ₹0"
+          "text": "Redeem 1 month for ₹0",
+          "authoritative": true
         }
       ],
       "context": [
@@ -191,6 +197,7 @@
       "id": "individual",
       "title": "Choose the Individual plan",
       "action": "radio",
+      "topLevelTarget": "#premium-pricing-modal__card-0[type=\"radio\"], input[name=\"premium-pricing-modal__card-selection\"][value=\"0\"], label[for=\"premium-pricing-modal__card-0\"]",
       "context": [
         {
           "kind": "frame",
@@ -211,6 +218,7 @@
       "id": "confirm-individual",
       "title": "Continue with the Individual plan",
       "action": "click",
+      "topLevelTarget": "#premium-pricing-modal__card-0[type=\"radio\"], input[name=\"premium-pricing-modal__card-selection\"][value=\"0\"], label[for=\"premium-pricing-modal__card-0\"]",
       "locators": [
         {
           "css": ":is([role=\"dialog\"], dialog, .premium-pricing-modal):has(input[name=\"premium-pricing-modal__card-selection\"], #premium-pricing-modal__card-0) button[data-view-name=\"premium-chooser-pricing-modal-cta\"]",
@@ -355,7 +363,7 @@
       ]
     }
   ],
-  "workflowRevision": 13,
+  "workflowRevision": 14,
   "step2Steps": [
     {
       "id": "dismiss-tooltip",

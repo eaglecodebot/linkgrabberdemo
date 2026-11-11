@@ -226,6 +226,35 @@ test('Trial diagnostics redact alternate URLs and never export their settings', 
   const encoded=JSON.stringify(shared.redactedDiagnostics(h.data.run,'1.7.6'));
   assert.ok(!encoded.includes('secret'));assert.ok(!encoded.includes('trialAlternateUrls'));
 });
+test('plan routing probes the captured main-page target before choosing its frame', () => {
+  const step=defaults.steps.find(s=>s.id==='redeem'), frameCss=step.context[0].css;
+  const frameKey=shared.frameKey(0,[],frameCss), targetKey=JSON.stringify(['target',step.id]);
+  const run={frameInventory:{[frameKey]:{count:1,visibleCount:1}},frameBindings:{[frameKey]:{frameId:5,documentId:'embedded'}}};
+  assert.equal(shared.contextPlan(run,step).available,false);
+  run.frameInventory[targetKey]={ready:true,count:0,visibleCount:0,probedAt:Date.now()};
+  assert.equal(shared.contextPlan(run,step).frameId,5,'captured frame still works when the main page has no target');
+  run.frameInventory[targetKey]={ready:true,count:1,visibleCount:1,probedAt:Date.now()};
+  const main=shared.contextPlan(run,step);assert.equal(main.frameId,0);assert.deepEqual(main.step.context,[]);
+  run.frameInventory[targetKey].visibleCount=2;
+  assert.equal(shared.contextPlan(run,step).frameId,0,'multiple main targets must be resolved as ambiguous on that page');
+  run.frameInventory[targetKey].visibleCount=0;
+  assert.equal(shared.contextPlan(run,step).frameId,5,'hidden main controls do not displace the captured frame');
+  run.frameInventory[targetKey].probedAt=Date.now()-2000;
+  assert.equal(shared.contextPlan(run,step).available,false,'old probes cannot authorize an action after a worker wake');
+});
+test('only the challenged main document can report a plan target; it is not a frame binding', async () => {
+  const h=harness(),index=h.cfg.steps.findIndex(s=>s.id==='redeem');h.cfg.steps[index]=structuredClone(defaults.steps[index]);
+  await h.send('START');h.data.run.index=index-1;h.restart();
+  const packet=await h.request('PULL'),probe=packet.discoveries.find(hop=>hop.kind==='target');assert.ok(probe);
+  const report={key:probe.key,nonce:probe.nonce,count:1,visibleCount:1,ready:true,sourceUrl:''};
+  assert.equal((await h.request('FRAME_REPORT',report,{...h.page,frameId:8})).ok,false);
+  assert.equal((await h.request('FRAME_REPORT',report,{...h.page,documentId:'old-document'})).ok,false);
+  assert.equal((await h.request('FRAME_REPORT',{...report,nonce:'wrong'})).ok,false);
+  assert.equal((await h.request('FRAME_REPORT',report)).ok,true);
+  assert.equal((await h.request('BIND_FRAME',{nonce:probe.nonce},{...h.page,frameId:8,documentId:'embedded'})).ok,false);
+  assert.equal(h.data.run.frameBindings[probe.key],undefined);
+  h.data.run.index=index;h.restart();assert.equal((await h.request('CLAIM')).allowed,true);
+});
 test('a checkpoint survives worker recreation and prevents another claim', async () => {
   const h = harness(); await h.send('START');
   const pin = h.data.run.values.pincode;

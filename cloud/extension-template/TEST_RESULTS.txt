@@ -1,3 +1,33 @@
+VERIFICATION - LINK GRABBER WEB v6.6.1 / EXTENSION v1.11.1
+11 November 2026 (IST)
+
+CURRENT RUN: 100 automated checks passed (58 API/logic + 42 workflow state/wakeup).
+New workflow tests cover main-plan probing with an existing survey frame,
+fallback to that frame, stale/wrong sender/document/token rejection, prevention
+of target probes becoming iframe bindings, and the actual content script's
+scoped discovery message path. Existing owner isolation, service configuration,
+key upgrades/revocation, TXT/Excel snapshots, personalized extension ZIPs,
+release notices, admin URL management and workflow recovery checks also pass.
+
+engine.js, content.js and workflow.json match the uploaded v1.7.7 exactly.
+shared.js retains the admin-managed URL recovery guard; the background routing
+changes are merged with existing Grab Links/admin URL integration. Popup,
+extension settings, dynamic services, console scripts and notification colors
+match v6.6.0. Package/dependency lock trees differ only in application version.
+JavaScript syntax, JSON configuration and archive integrity checks pass.
+
+BROWSER TEST LIMITATION IN THIS RUN
+Chromium launch was blocked by this runtime: process_singleton_posix socket()
+returned Operation not permitted. Redeem, integrated capture and Cancel & Refund
+browser suites could not start. No current browser/DOM success or native
+GoLogin installation is claimed. The new tests/redeem-button.cjs suite is
+included for a runtime supporting Chromium. It exercises main-page, iframe and
+main-page-with-survey-frame layouts, changed wording/classes, readiness guards,
+duplicates/overlays and progression to the fixture QR. No production website,
+trial, payment, cancellation/refund or reward redemption was performed.
+
+Historical verification from earlier releases follows:
+
 VERIFICATION - LINK GRABBER WEB v6.6.0 / EXTENSION v1.11.0
 31 October 2026 (IST)
 

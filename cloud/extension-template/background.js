@@ -105,7 +105,7 @@ function discoveries(run, sender) {
     if (hop.parentFrameId !== sender.frameId) continue;
     let challenge = run.frameChallenges[hop.key];
     if (!challenge || challenge.parentDocumentId !== sender.documentId || challenge.expires < Date.now()) challenge = run.frameChallenges[hop.key] = {...hop, nonce: crypto.randomUUID(), parentDocumentId: sender.documentId, expires: Date.now() + 20000};
-    result.set(hop.key, {key: hop.key, prefix: hop.prefix, css: hop.css, nonce: challenge.nonce});
+    result.set(hop.key, {key: hop.key, kind: hop.kind, prefix: hop.prefix, css: hop.css, nonce: challenge.nonce});
   }
   return [...result.values()];
 }
@@ -265,13 +265,14 @@ async function handle(msg, sender) {
     case 'FRAME_REPORT': {
       if (run?.status !== 'running' || msg.runId !== run.id || sender.tab?.id !== run.tabId) return {ok: false};
       const challenge = run.frameChallenges?.[msg.key];
-      if (!challenge || challenge.nonce !== msg.nonce || challenge.parentFrameId !== sender.frameId || challenge.parentDocumentId !== sender.documentId) return {ok: false};
+      if (!challenge || challenge.nonce !== msg.nonce || challenge.expires < Date.now() || challenge.parentFrameId !== sender.frameId || challenge.parentDocumentId !== sender.documentId) return {ok: false};
       const previous = run.frameInventory[msg.key];
       const count = Math.min(100, Math.max(0, Number(msg.count) || 0)), visibleCount = Math.min(count, Math.max(0, Number(msg.visibleCount) || 0));
       const changed = !previous || previous.count !== count || previous.visibleCount !== visibleCount || previous.ready !== Boolean(msg.ready) || previous.sourceUrl !== msg.sourceUrl;
-      const inventory = run.frameInventory[msg.key] = {count, visibleCount, ready: Boolean(msg.ready), sourceUrl: msg.sourceUrl || '', since: changed ? Date.now() : previous.since, lastProbe: previous?.lastProbe || 0};
+      const inventory = run.frameInventory[msg.key] = {count, visibleCount, ready: Boolean(msg.ready), sourceUrl: msg.sourceUrl || '', since: changed ? Date.now() : previous.since, lastProbe: previous?.lastProbe || 0, probedAt: Date.now()};
       if (count !== 1 || visibleCount !== 1) delete run.frameBindings[msg.key];
       if (changed) await save(run);
+      if (challenge.kind === 'target') return {ok: true, active: run.status === 'running'};
       if (count === 1 && visibleCount === 1 && msg.ready) {
         let origin; try { origin = originOf(msg.sourceUrl); } catch {}
         if (!await embeddedAccess(run, origin)) return {ok: true, active: false};
@@ -293,7 +294,7 @@ async function handle(msg, sender) {
     case 'BIND_FRAME': {
       if (run?.status !== 'running' || msg.runId !== run.id || !await actor(run, sender, msg.readyState)) return {ok: false};
       const challenge = Object.values(run.frameChallenges || {}).find(c => c.nonce === msg.nonce && c.expires >= Date.now());
-      if (!challenge || run.actors[sender.frameId].parentFrameId !== challenge.parentFrameId || sender.frameId === 0) return {ok: false};
+      if (!challenge || challenge.kind === 'target' || run.actors[sender.frameId].parentFrameId !== challenge.parentFrameId || sender.frameId === 0) return {ok: false};
       const previous = run.frameBindings[challenge.key];
       if (previous && (previous.frameId !== sender.frameId || previous.documentId !== sender.documentId)) return {ok: false};
       run.frameBindings[challenge.key] = {frameId: sender.frameId, documentId: sender.documentId, parentFrameId: challenge.parentFrameId, prefix: challenge.prefix, css: challenge.css};
